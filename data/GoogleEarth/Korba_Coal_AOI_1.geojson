@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "Korba_Coal_AOI_1",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "Name": "Korba Coalmine Polygon-1", "Description": "" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ 82.527218977381565, 22.330962606273051, 0.0 ], [ 82.559992266774145, 22.328127638948359, 0.0 ], [ 82.56648733769066, 22.350094047055968, 0.0 ], [ 82.528315855067035, 22.350893899261049, 0.0 ], [ 82.527218977381565, 22.330962606273051, 0.0 ] ] ] } }
+]
+}
