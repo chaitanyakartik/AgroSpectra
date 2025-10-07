@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORENEXUS - Advanced Mining Activity Monitor</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Enhanced Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 65px;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border-bottom: 2px solid #4CAF50;
+            display: flex;
+            align-items: center;
+            padding: 0 25px;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #4CAF50, #8BC34A);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-right: auto;
+            letter-spacing: 1px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .header-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0 15px;
+            border-left: 1px solid #333;
+        }
+
+        .header-stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .header-stat-label {
+            font-size: 10px;
+            color: #999;
+            text-transform: uppercase;
+        }
+
+        .date-picker, .time-picker, .satellite-select {
+            padding: 10px 15px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(76,175,80,0.3);
+            color: #e0e0e0;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        .date-picker:focus, .time-picker:focus, .satellite-select:focus {
+            outline: none;
+            border-color: #4CAF50;
+            background: rgba(255,255,255,0.08);
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 2px;
+            background: rgba(0,0,0,0.3);
+            padding: 4px;
+            border-radius: 8px;
+        }
+
+        .view-toggle button {
+            padding: 8px 16px;
+            background: transparent;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .view-toggle button:hover {
+            color: #fff;
+        }
+
+        .view-toggle button.active {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            box-shadow: 0 2px 8px rgba(76,175,80,0.4);
+        }
+
+        /* Enhanced Sidebar */
+        .sidebar {
+            width: 320px;
+            background: linear-gradient(180deg, #1a1a1a 0%, #161616 100%);
+            border-right: 1px solid #333;
+            margin-top: 65px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .sidebar.collapsed {
+            width: 60px;
+        }
+
+        .sidebar-toggle {
+            position: absolute;
+            right: -15px;
+            top: 20px;
+            width: 30px;
+            height: 30px;
+            background: #4CAF50;
+            border-radius: 50%;
+            border: 2px solid #1a1a1a;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            transition: all 0.3s;
+        }
+
+        .sidebar-toggle:hover {
+            transform: scale(1.1);
+            background: #45a049;
+        }
+
+        .sidebar-section {
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 18px 20px;
+            background: rgba(255,255,255,0.02);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .sidebar-header::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: transparent;
+            transition: all 0.3s;
+        }
+
+        .sidebar-header:hover {
+            background: rgba(76,175,80,0.1);
+        }
+
+        .sidebar-header.active::before {
+            background: #4CAF50;
+        }
+
+        .sidebar-content {
+            padding: 20px;
+            background: rgba(0,0,0,0.2);
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .sidebar-content.active {
+            max-height: 500px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .control-input {
+            width: 100%;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #e0e0e0;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        .control-input:focus {
+            outline: none;
+            border-color: #4CAF50;
+            background: rgba(255,255,255,0.08);
+        }
+
+        .control-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .control-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .control-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 10px rgba(76,175,80,0.5);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex: 1;
+            font-weight: 500;
+            font-size: 14px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s;
+        }
+
+        .btn:hover::before {
+            width: 100%;
+            height: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76,175,80,0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #555, #666);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336, #e53935);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-top: 65px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: #0a0a0a;
+        }
+
+        #map {
+            flex: 1;
+            background: #0a0a0a;
+            position: relative;
+        }
+
+        /* Enhanced Info Panel */
+        .info-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            background: rgba(26, 26, 26, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(76,175,80,0.2);
+            border-radius: 12px;
+            padding: 25px;
+            min-width: 380px;
+            z-index: 500;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .info-header {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #4CAF50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .info-header::before {
+            content: '📍';
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 12px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.3s;
+        }
+
+        .info-row:hover {
+            padding-left: 5px;
+            border-bottom-color: rgba(76,175,80,0.3);
+        }
+
+        .info-label {
+            color: #888;
+            font-size: 14px;
+        }
+
+        .info-value {
+            color: #e0e0e0;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .status-active {
+            color: #4CAF50;
+            position: relative;
+        }
+
+        .status-active::before {
+            content: '';
+            position: absolute;
+            left: -15px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 8px;
+            background: #4CAF50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .status-illegal {
+            color: #f44336;
+            font-weight: bold;
+        }
+
+        /* Enhanced Charts Panel */
+        .charts-panel {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(26, 26, 26, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(76,175,80,0.2);
+            border-radius: 12px;
+            padding: 25px;
+            width: 450px;
+            max-height: 500px;
+            z-index: 500;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            animation: slideUp 0.3s ease;
+        }
+
+        .chart-container {
+            height: 180px;
+            margin-top: 15px;
+            position: relative;
+        }
+
+        .chart-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .chart-tab {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 13px;
+        }
+
+        .chart-tab.active {
+            background: rgba(76,175,80,0.2);
+            border-color: #4CAF50;
+            color: #4CAF50;
+        }
+
+        /* Enhanced 3D View Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+            border-radius: 12px;
+            padding: 30px;
+            width: 90%;
+            height: 85%;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            border: 1px solid rgba(76,175,80,0.2);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            color: #4CAF50;
+        }
+
+        .modal-close {
+            background: linear-gradient(135deg, #f44336, #e53935);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .modal-close:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(244,67,54,0.3);
+        }
+
+        #threejs-container {
+            width: 100%;
+            height: calc(100% - 60px);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        /* Enhanced Loading Indicator */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-content {
+            text-align: center;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 20px;
+            border: 4px solid rgba(76,175,80,0.1);
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #4CAF50;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        /* Enhanced Floating Action Buttons */
+        .fab-container {
+            position: absolute;
+            bottom: 30px;
+            right: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 500;
+        }
+
+        .fab {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+            font-size: 24px;
+            position: relative;
+        }
+
+        .fab:hover {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 8px 24px rgba(76,175,80,0.4);
+        }
+
+        .fab-tooltip {
+            position: absolute;
+            right: 70px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .fab:hover .fab-tooltip {
+            opacity: 1;
+        }
+
+        /* Notification Toast */
+        .toast {
+            position: fixed;
+            top: 85px;
+            right: 30px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 2500;
+            max-width: 350px;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #f44336, #e53935);
+        }
+
+        .toast.warning {
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.02);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(76,175,80,0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(76,175,80,0.5);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1400px) {
+            .charts-panel {
+                width: 380px;
+            }
+            .fab-container {
+                right: 420px;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .sidebar {
+                width: 280px;
+            }
+            .info-panel {
+                min-width: 320px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">ORENEXUS</div>
+            <div class="header-controls">
+                <div class="header-stat">
+                    <span class="header-stat-value" id="totalSites">12</span>
+                    <span class="header-stat-label">Active Sites</span>
+                </div>
+                <div class="header-stat">
+                    <span class="header-stat-value" id="illegalCount">3</span>
+                    <span class="header-stat-label">Violations</span>
+                </div>
+                <button class="btn" onclick="uploadAOI()">📤 Upload AOI</button>
+                <input type="date" class="date-picker" id="datePicker" value="2025-09-25">
+                <input type="time" class="time-picker" id="timePicker" value="11:25">
+                <select class="satellite-select" id="satelliteSelect">
+                    <option value="landsat8">Landsat-8</option>
+                    <option value="sentinel2">Sentinel-2</option>
+                    <option value="worldview3">WorldView-3</option>
+                </select>
+                <div class="view-toggle">
+                    <button class="active" onclick="setView('2D', this)">2D</button>
+                    <button onclick="setView('3D', this)">3D</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-toggle" onclick="toggleSidebar()">
+                <span id="sidebarToggleIcon">◀</span>
+            </div>
+
+            <!-- Layer Controls -->
+            <div class="sidebar-section">
+                <div class="sidebar-header active" onclick="toggleSection(this)">
+                    <span>📍 Layer Controls</span>
+                    <span class="section-arrow">▼</span>
+                </div>
+                <div class="sidebar-content active">
+                    <div class="control-group">
+                        <label class="control-label">Base Layer</label>
+                        <select class="control-input" id="baseLayerSelect" onchange="changeBaseLayer(this.value)">
+                            <option value="satellite">Satellite Imagery</option>
+                            <option value="terrain">Terrain Map</option>
+                            <option value="streets">Street Map</option>
+                            <option value="dark">Dark Mode</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <input type="checkbox" id="miningOverlay" checked onchange="toggleMiningOverlay(this.checked)">
+                            Show Mining Areas
+                        </label>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <input type="checkbox" id="boundaryOverlay" onchange="toggleBoundaryLayer(this.checked)">
+                            Show Legal Boundaries
+                        </label>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <input type="checkbox" id="heatmapOverlay" onchange="toggleHeatmap(this.checked)">
+                            Activity Heatmap
+                        </label>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Layer Opacity: <span id="opacityValue">70%</span></label>
+                        <input type="range" class="control-slider" id="opacitySlider" min="0" max="100" value="70" 
+                               oninput="updateOpacity(this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualization Settings -->
+            <div class="sidebar-section">
+                <div class="sidebar-header" onclick="toggleSection(this)">
+                    <span>🎨 Visualization</span>
+                    <span class="section-arrow">▶</span>
+                </div>
+                <div class="sidebar-content">
+                    <div class="control-group">
+                        <label class="control-label">Band Combination</label>
+                        <select class="control-input" id="bandCombo">
+                            <option value="natural">Natural Color (4-3-2)</option>
+                            <option value="false">False Color (5-4-3)</option>
+                            <option value="ndvi">NDVI Vegetation</option>
+                            <option value="ndwi">NDWI Water</option>
+                            <option value="urban">Urban (7-6-4)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Brightness: <span id="brightnessValue">0</span></label>
+                        <input type="range" class="control-slider" id="brightnessSlider" min="-100" max="100" value="0"
+                               oninput="adjustBrightness(this.value)">
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Contrast: <span id="contrastValue">0</span></label>
+                        <input type="range" class="control-slider" id="contrastSlider" min="-100" max="100" value="0"
+                               oninput="adjustContrast(this.value)">
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Saturation: <span id="saturationValue">100%</span></label>
+                        <input type="range" class="control-slider" id="saturationSlider" min="0" max="200" value="100"
+                               oninput="adjustSaturation(this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Tools -->
+            <div class="sidebar-section">
+                <div class="sidebar-header" onclick="toggleSection(this)">
+                    <span>🔍 Filter Tools</span>
+                    <span class="section-arrow">▶</span>
+                </div>
+                <div class="sidebar-content">
+                    <div class="control-group">
+                        <label class="control-label">Date Range</label>
+                        <input type="date" class="control-input" id="startDate">
+                        <input type="date" class="control-input" id="endDate" style="margin-top: 8px;">
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Cloud Coverage: <span id="cloudValue">20%</span></label>
+                        <input type="range" class="control-slider" id="cloudSlider" min="0" max="100" value="20"
+                               oninput="updateCloudFilter(this.value)">
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <input type="checkbox" id="illegalOnly"> Show Violations Only
+                        </label>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <input type="checkbox" id="activeOnly" checked> Active Sites Only
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytical Tools -->
+            <div class="sidebar-section">
+                <div class="sidebar-header" onclick="toggleSection(this)">
+                    <span>📊 Analysis Tools</span>
+                    <span class="section-arrow">▶</span>
+                </div>
+                <div class="sidebar-content">
+                    <div class="button-group">
+                        <button class="btn" onclick="detectMining()">🔍 Auto Detect</button>
+                        <button class="btn btn-secondary" onclick="calculateVolume()">📊 Volume</button>
+                    </div>
+                    <div class="button-group">
+                        <button class="btn btn-warning" onclick="compareImages()">🔄 Compare</button>
+                        <button class="btn btn-danger" onclick="detectIllegal()">⚠️ Violations</button>
+                    </div>
+                    <div class="button-group">
+                        <button class="btn" onclick="timeSeriesAnalysis()">📈 Time Series</button>
+                        <button class="btn btn-secondary" onclick="generateHeatmap()">🗺️ Heatmap</button>
+                    </div>
+                    <div class="button-group">
+                        <button class="btn" onclick="generateReport()">📄 Report</button>
+                        <button class="btn btn-secondary" onclick="exportData()">💾 Export</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div id="map"></div>
+
+            <!-- Info Panel -->
+            <div class="info-panel" id="infoPanel">
+                <div class="info-header">Chainpur Mining Site</div>
+                <div class="info-row">
+                    <span class="info-label">Site ID:</span>
+                    <span class="info-value">#MN-38472</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Coordinates:</span>
+                    <span class="info-value">25.594°N, 85.137°E</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Status:</span>
+                    <span class="info-value status-active">Active</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Total Area:</span>
+                    <span class="info-value">5.26 hectares</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Legal Area:</span>
+                    <span class="info-value">4.46 hectares</span>

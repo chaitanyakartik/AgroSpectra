@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORENEXUS - Advanced Mining Activity Monitor</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 65px;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border-bottom: 2px solid #4CAF50;
+            display: flex;
+            align-items: center;
+            padding: 0 25px;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #4CAF50, #8BC34A);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-right: auto;
+            letter-spacing: 1px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .header-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0 15px;
+            border-left: 1px solid #333;
+        }
+
+        .header-stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .header-stat-label {
+            font-size: 10px;
+            color: #999;
+            text-transform: uppercase;
+        }
+
+        .date-picker, .time-picker, .satellite-select {
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(76,175,80,0.3);
+            color: #e0e0e0;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 2px;
+            background: rgba(0,0,0,0.3);
+            padding: 4px;
+            border-radius: 8px;
+        }
+
+        .view-toggle button {
+            padding: 8px 16px;
+            background: transparent;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .view-toggle button.active {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            background: linear-gradient(180deg, #1a1a1a 0%, #161616 100%);
+            border-right: 1px solid #333;
+            margin-top: 65px;
+            overflow-y: auto;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+
+        .sidebar.collapsed {
+            width: 60px;
+        }
+
+        .sidebar.collapsed .sidebar-content,
+        .sidebar.collapsed .sidebar-header span:not(#sidebarToggleIcon) {
+            display: none;
+        }
+
+        .sidebar-toggle {
+            position: absolute;
+            right: -15px;
+            top: 20px;
+            width: 30px;
+            height: 30px;
+            background: #4CAF50;
+            border-radius: 50%;
+            border: 2px solid #1a1a1a;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .sidebar-section {
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .sidebar-header {
+            padding: 18px 20px;
+            background: rgba(255,255,255,0.02);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+
+        .sidebar-header:hover {
+            background: rgba(76,175,80,0.1);
+        }
+
+        .sidebar-content {
+            padding: 20px;
+            background: rgba(0,0,0,0.2);
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .sidebar-content.active {
+            max-height: 600px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .control-input {
+            width: 100%;
+            padding: 8px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #e0e0e0;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .control-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .control-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+            font-size: 13px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76,175,80,0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #555, #666);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336, #e53935);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-top: 65px;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #0a0a0a;
+        }
+
+        /* Info Panel */
+        .info-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            background: rgba(26, 26, 26, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(76,175,80,0.2);
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 320px;
+            z-index: 500;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
+        .info-header {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #4CAF50;
+            font-weight: 600;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .info-label {
+            color: #888;
+            font-size: 13px;
+        }
+
+        .info-value {
+            color: #e0e0e0;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .status-active {
+            color: #4CAF50;
+        }
+
+        .status-illegal {
+            color: #f44336;
+            font-weight: bold;
+        }
+
+        /* Entity List */
+        .entity-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .entity-item {
+            padding: 10px;
+            background: rgba(255,255,255,0.03);
+            margin: 5px 0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+
+        .entity-item:hover {
+            background: rgba(76,175,80,0.1);
+            border-left-color: #4CAF50;
+        }
+
+        .entity-item.selected {
+            background: rgba(76,175,80,0.2);
+            border-left-color: #4CAF50;
+        }
+
+        .entity-name {
+            font-weight: 600;
+            color: #e0e0e0;
+            font-size: 13px;
+        }
+
+        .entity-status {
+            font-size: 11px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.02);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(76,175,80,0.3);
+            border-radius: 3px;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 85px;
+            right: 30px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 14px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 2500;
+            font-size: 14px;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        input[type="checkbox"] {
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">ORENEXUS</div>
+            <div class="header-controls">
+                <div class="header-stat">
+                    <span class="header-stat-value" id="totalSites">12</span>
+                    <span class="header-stat-label">Active Sites</span>
+                </div>
+                <div class="header-stat">
+                    <span class="header-stat-value" id="illegalCount">3</span>
+                    <span class="header-stat-label">Violations</span>
+                </div>
+                <button class="btn" onclick="uploadAOI()">📤 Upload AOI</button>
+                <input type="date" class="date-picker" id="datePicker" value="2025-09-25">
+                <input type="time" class="time-picker" id="timePicker" value="11:25">
+                <select class="satellite-select" id="satelliteSelect">
+                    <option value="landsat8">Landsat-8</option>
+                    <option value="sentinel2">Sentinel-2</option>
+                    <option value="worldview3">WorldView-3</option>
+                </select>
+                <div class="view-toggle">
+                    <button class="active" onclick="setView('2D', this)">2D</button>
+                    <button onclick="setView('3D', this)">3D</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-toggle" onclick="toggleSidebar()">
+                <span id="sidebarToggleIcon">◀</span>
+            </div>
+
+            <!-- AOI Section -->
+            <div class="sidebar-section">
+                <div class="sidebar-header active" onclick="toggleSection(this)">
+                    <span>📍 Areas of Interest</span>
+                    <span class="section-arrow">▼</span>
+                </div>
+                <div class="sidebar-content active">
+                    <div class="entity-list" id="aoiList">
+                        <div class="entity-item" onclick="selectEntity(this, 'aoi1')">
+                            <div class="entity-name">Chainpur Mining Zone</div>
+                            <div class="entity-status">Area: 5.26 hectares</div>
+                        </div>
+                        <div class="entity-item" onclick="selectEntity(this, 'aoi2')">
+                            <div class="entity-name">Patna Riverbed Site</div>
+                            <div class="entity-status">Area: 3.84 hectares</div>
+                        </div>
+                        <div class="entity-item" onclick="selectEntity(this, 'aoi3')">
+                            <div class="entity-name">Gaya Industrial Area</div>
+                            <div class="entity-status">Area: 7.12 hectares</div>
+                        </div>
+                    </div>
+                    <button class="btn" onclick="addNewAOI()" style="width: 100%; margin-top: 10px;">+ Add New AOI</button>
+                </div>
+            </div>
+
+            <!-- Entities Section -->
+            <div class="sidebar-section">
+                <div class="sidebar-header" onclick="toggleSection(this)">
+                    <span>🏢 Mining Entities</span>
+                    <span class="section-arrow">▶</span>
+                </div>
+                <div class="sidebar-content">
+                    <div class="entity-list" id="entityList">
+                        <div class="entity-item" onclick="selectEntity(this, 'entity1')">
+                            <div class="entity-name">Bihar Mining Corp.</div>
+                            <div class="entity-status">Status: Active • 4 sites</div>
+                        </div>
+                        <div class="entity-item" onclick="selectEntity(this, 'entity2')">
+                            <div class="entity-name">Ganges Extraction Ltd.</div>
+                            <div class="entity-status">Status: Active • 2 sites</div>
+                        </div>
+                        <div class="entity-item" onclick="selectEntity(this, 'entity3')">
+                            <div class="entity-name">Patna Sand Co.</div>
+                            <div class="entity-status">Status: Violation • 3 sites</div>
+                        </div>
+                        <div class="entity-item" onclick="selectEntity(this, 'entity4')">
+                            <div class="entity-name">Eastern Minerals Inc.</div>
+                            <div class="entity-status">Status: Active • 3 sites</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Layer Controls -->
+            <div class="sidebar-section">
+                <div class="sidebar-header" onclick="toggleSection(this)">
+                    <span>🗺️ Layer Controls</span>
+                    <span class="section-arrow">▶</span>
+                </div>
+                <div class="sidebar-content">
+                    <div class="control-group">
+                        <label class="control-label">Base Layer</label>
+                        <select class="control-input" id="baseLayerSelect" onchange="changeBaseLayer(this.value)">
+                            <option value="satellite">Satellite Imagery</option>
+                            <option value="streets">Street Map</option>
+                            <option value="terrain">Terrain</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <input type="checkbox" id="miningOverlay" checked>
+                            Show Mining Areas
+                        </label>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <input type="checkbox" id="boundaryOverlay">
+                            Show Legal Boundaries
+                        </label>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Opacity: <span id="opacityValue">70%</span></label>
+                        <input type="range" class="control-slider" id="opacitySlider" min="0" max="100" value="70" 
+                               oninput="updateOpacity(this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis Tools -->
+            <div class="sidebar-section">
+                <div class="sidebar-header" onclick="toggleSection(this)">
+                    <span>📊 Analysis Tools</span>
+                    <span class="section-arrow">▶</span>
+                </div>
+                <div class="sidebar-content">
+                    <div class="button-group">
+                        <button class="btn" onclick="detectMining()">🔍 Detect</button>
+                        <button class="btn btn-secondary" onclick="calculateVolume()">📊 Volume</button>
+                        <button class="btn btn-warning" onclick="compareImages()">🔄 Compare</button>
+                        <button class="btn btn-danger" onclick="detectIllegal()">⚠️ Violations</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div id="map"></div>
+
+            <!-- Info Panel -->
+            <div class="info-panel">
+                <div class="info-header">📍 Chainpur Mining Site</div>
+                <div class="info-row">
+                    <span class="info-label">Site ID:</span>
+                    <span class="info-value">#MN-38472</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Coordinates:</span>
+                    <span class="info-value">25.594°N, 85.137°E</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Status:</span>
+                    <span class="info-value status-active">Active</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Total Area:</span>
+                    <span class="info-value">5.26 hectares</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Legal Area:</span>
+                    <span class="info-value">4.46 hectares</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Violation:</span>
+                    <span class="info-value status-illegal">0.80 ha excess</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        let map;
+        let markers = {};
+        let currentBaseLayer;
+        
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView([25.594, 85.137], 13);
+            
+            // Add OpenStreetMap tile layer
+            currentBaseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+            
+            // Add sample mining sites
+            addMiningMarkers();
+            
+            showToast('Map initialized successfully');
+        }
+        
+        // Add mining site markers
+        function addMiningMarkers() {
+            const sites = [
+                { lat: 25.594, lng: 85.137, name: 'Chainpur Mining Site', status: 'violation' },
+                { lat: 25.612, lng: 85.142, name: 'Patna Riverbed Site', status: 'active' },
+                { lat: 25.582, lng: 85.151, name: 'Gaya Industrial Area', status: 'active' },
+                { lat: 25.607, lng: 85.128, name: 'Eastern Site', status: 'active' }
+            ];
+            
+            sites.forEach((site, idx) => {
+                const color = site.status === 'violation' ? 'red' : 'green';
+                const marker = L.circleMarker([site.lat, site.lng], {
+                    radius: 8,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.7
+                }).addTo(map);
+                
+                marker.bindPopup(`<b>${site.name}</b><br>Status: ${site.status}`);
+                markers[`site${idx}`] = marker;
+            });
+        }
+        
+        // Toggle sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const icon = document.getElementById('sidebarToggleIcon');
+            sidebar.classList.toggle('collapsed');
+            icon.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+        }
+        
+        // Toggle section
+        function toggleSection(header) {
+            const content = header.nextElementSibling;
+            const arrow = header.querySelector('.section-arrow');
+            const isActive = content.classList.contains('active');
+            
+            content.classList.toggle('active');
+            arrow.textContent = isActive ? '▶' : '▼';
+            header.classList.toggle('active');
+        }
+        
+        // Select entity
+        function selectEntity(element, id) {
+            document.querySelectorAll('.entity-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            element.classList.add('selected');
+            showToast(`Selected: ${element.querySelector('.entity-name').textContent}`);
+        }
+        
+        // Change base layer
+        function changeBaseLayer(type) {
+            map.removeLayer(currentBaseLayer);
+            
+            const layers = {
+                satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                streets: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                terrain: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'
+            };
+            
+            currentBaseLayer = L.tileLayer(layers[type] || layers.streets, {
+                attribution: '© Map contributors',
+                maxZoom: 19
+            }).addTo(map);
+            
+            showToast(`Base layer changed to ${type}`);
+        }
+        
+        // Update opacity
+        function updateOpacity(value) {
+            document.getElementById('opacityValue').textContent = value + '%';
+        }
+        
+        // Show toast notification
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+        
+        // Button functions
+        function uploadAOI() {
+            showToast('Upload AOI feature - File upload would be implemented here');
+        }
+        
+        function setView(view, button) {
+            document.querySelectorAll('.view-toggle button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            button.classList.add('active');
+            showToast(`Switched to ${view} view`);
+        }
+        
+        function addNewAOI() {
+            showToast('Add new AOI - Drawing tools would be enabled here');
+        }
+        
+        function detectMining() {
+            showToast('Running mining detection algorithm...');
+        }
+        
+        function calculateVolume() {
+            showToast('Calculating excavation volume...');
+        }
+        
+        function compareImages() {
+            showToast('Image comparison tool launched');
+        }
+        
+        function detectIllegal() {
+            showToast('Scanning for violations...');
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', initMap);
+    </script>
+</body>
+</html>

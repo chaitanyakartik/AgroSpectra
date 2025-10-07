@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORENEXUS - Mining Activity Monitor</title>
+    
+    <!-- External Libraries -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    
+    <!-- Application Styles -->
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/themes.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">⛏️ ORENEXUS</div>
+            <div class="header-controls">
+                <button class="btn" id="uploadAOIBtn">📤 Upload AOI</button>
+                <input type="date" class="date-picker" id="datePicker" value="2025-10-07">
+                <input type="time" class="time-picker" value="14:30">
+                <select class="satellite-select" id="satelliteSelect">
+                    <option>Landsat-8</option>
+                    <option>Sentinel-2</option>
+                    <option>WorldView-3</option>
+                    <option>Planet</option>
+                </select>
+                <div class="view-toggle">
+                    <button class="active" data-view="2D">2D Map</button>
+                    <button data-view="3D">3D Terrain</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Sidebar -->
+            <div class="sidebar" id="sidebar">
+                <!-- Mining Sites -->
+                <div class="sidebar-section">
+                    <div class="sidebar-header active" data-section="sites">
+                        <span>📍 Mining Sites</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="sidebar-content active" id="sitesContent">
+                        <div class="sites-list" id="sitesList"></div>
+                    </div>
+                </div>
+
+                <!-- Layer Controls -->
+                <div class="sidebar-section">
+                    <div class="sidebar-header" data-section="layers">
+                        <span>🗺️ Layer Controls</span>
+                        <span>▶</span>
+                    </div>
+                    <div class="sidebar-content" id="layersContent">
+                        <div class="control-group">
+                            <label class="control-label">Base Layer</label>
+                            <select class="control-input" id="baseLayerSelect">
+                                <option value="satellite">Satellite Imagery</option>
+                                <option value="terrain">Terrain Map</option>
+                                <option value="streets">Street Map</option>
+                                <option value="dark">Dark Mode</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="miningOverlay" checked>
+                                Mining Areas Overlay
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="boundaryOverlay">
+                                Legal Boundaries
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="heatmapOverlay">
+                                Activity Heatmap
+                            </label>
+                        </div>
+                        <div class="control-group">
+                            <label class="control-label">Layer Opacity</label>
+                            <input type="range" class="control-slider" id="opacitySlider" min="0" max="100" value="70">
+                            <div style="text-align: center; color: #999; font-size: 12px;">
+                                <span id="opacityValue">70%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visualization Settings -->
+                <div class="sidebar-section">
+                    <div class="sidebar-header" data-section="visualization">
+                        <span>🎨 Visualization</span>
+                        <span>▶</span>
+                    </div>
+                    <div class="sidebar-content" id="visualizationContent">
+                        <div class="control-group">
+                            <label class="control-label">Band Combination</label>
+                            <select class="control-input" id="bandCombo">
+                                <option>Natural Color (RGB)</option>
+                                <option>False Color (NIR)</option>
+                                <option>NDVI Vegetation</option>
+                                <option>NDWI Water Index</option>
+                                <option>Mineral Composite</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label class="control-label">Enhancement</label>
+                            <select class="control-input" id="enhancement">
+                                <option>Auto-Enhance</option>
+                                <option>High Contrast</option>
+                                <option>Edge Detection</option>
+                                <option>None</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analysis Tools -->
+                <div class="sidebar-section">
+                    <div class="sidebar-header" data-section="analysis">
+                        <span>🔬 Analysis Tools</span>
+                        <span>▶</span>
+                    </div>
+                    <div class="sidebar-content" id="analysisContent">
+                        <div class="button-group">
+                            <button class="btn" id="detectBtn">🔍 Auto Detect</button>
+                            <button class="btn btn-secondary" id="volumeBtn">📊 Volume</button>
+                            <button class="btn btn-warning" id="compareBtn">🔄 Compare</button>
+                            <button class="btn btn-danger" id="illegalBtn">⚠️ Violations</button>
+                        </div>
+                        <div class="control-group" style="margin-top: 20px;">
+                            <label class="control-label">Detection Sensitivity</label>
+                            <select class="control-input" id="sensitivity">
+                                <option>High (More Detections)</option>
+                                <option selected>Medium (Balanced)</option>
+                                <option>Low (Fewer False Positives)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reports & Export -->
+                <div class="sidebar-section">
+                    <div class="sidebar-header" data-section="reports">
+                        <span>📄 Reports</span>
+                        <span>▶</span>
+                    </div>
+                    <div class="sidebar-content" id="reportsContent">
+                        <div class="button-group">
+                            <button class="btn" id="reportBtn">📝 Report</button>
+                            <button class="btn btn-secondary" id="exportBtn">💾 Export</button>
+                            <button class="btn btn-secondary" id="printBtn">🖨️ Print</button>
+                            <button class="btn btn-warning" id="shareBtn">📤 Share</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="main-content">
+                <div id="map"></div>
+                
+                <!-- Loading Indicator -->
+                <div class="loading" id="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 10px; color: #4CAF50;">Processing...</p>
+                </div>
+
+                <!-- Info Panel -->
+                <div class="info-panel" id="infoPanel">
+                    <div class="info-header">📊 Site Information</div>
+                    <div id="siteInfo">
+                        <div class="info-row">
+                            <span class="info-label">Select a mining site to view details</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics Panel -->
+                <div class="stats-panel" id="statsPanel">
+                    <div class="info-header">📈 Real-time Statistics</div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Mining Area</div>
+                        <div class="stat-value" id="totalArea">45.2 ha</div>
+                        <div class="stat-change positive">↑ 2.3% this month</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Active Sites</div>
+                        <div class="stat-value" id="activeSites">12</div>
+                        <div class="stat-change">No change</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Violations Detected</div>
+                        <div class="stat-value" id="violations" style="color: #f44336;">3</div>
+                        <div class="stat-change negative">↑ 1 new today</div>
+                    </div>
+                </div>
+
+                <!-- Floating Action Buttons -->
+                <div class="fab-container">
+                    <button class="fab" id="measureBtn" title="Measure Distance">📏</button>
+                    <button class="fab" id="drawBtn" title="Draw Area">✏️</button>
+                    <button class="fab" id="snapshotBtn" title="Capture">📸</button>
+                    <button class="fab" id="fullscreenBtn" title="Fullscreen">⛶</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- External Libraries -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+    <!-- Application Scripts (Load in order) -->
+    <script src="js/config.js"></script>
+    <script src="js/data/mining_sites.js"></script>
+    <script src="js/utils/helpers.js"></script>
+    <script src="js/core/map_manager.js"></script>
+    <script src="js/modules/site_manager.js"></script>
+    <script src="js/modules/layer_control.js"></script>
+    <script src="js/modules/analysis.js"></script>
+    <script src="js/modules/export.js"></script>
+    <script src="js/modules/ui_controls.js"></script>
+    <script src="js/utils/events.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

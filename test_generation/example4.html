@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORENEXUS - Mining Activity Monitor</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            height: 60px;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            border-bottom: 2px solid #4CAF50;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .logo {
+            font-size: 26px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #4CAF50, #8BC34A);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-right: auto;
+            letter-spacing: 2px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .date-picker, .time-picker, .satellite-select {
+            padding: 8px 12px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .date-picker:hover, .time-picker:hover, .satellite-select:hover {
+            border-color: #4CAF50;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 5px;
+            background: #2a2a2a;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .view-toggle button {
+            padding: 6px 12px;
+            background: transparent;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .view-toggle button.active {
+            background: #4CAF50;
+            color: white;
+            box-shadow: 0 2px 5px rgba(76, 175, 80, 0.3);
+        }
+
+        /* Main Layout */
+        .main-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            background: linear-gradient(to bottom, #1a1a1a, #151515);
+            border-right: 1px solid #333;
+            overflow-y: auto;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar.collapsed {
+            width: 60px;
+        }
+
+        .sidebar-toggle {
+            position: absolute;
+            right: -20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 40px;
+            background: #4CAF50;
+            border: none;
+            border-radius: 0 5px 5px 0;
+            color: white;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .sidebar-section {
+            border-bottom: 1px solid #333;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            background: linear-gradient(90deg, #222, #2a2a2a);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+            user-select: none;
+        }
+
+        .sidebar-header:hover {
+            background: linear-gradient(90deg, #2a2a2a, #333);
+            padding-left: 20px;
+        }
+
+        .sidebar-header.active {
+            background: linear-gradient(90deg, #1a3d1a, #2a2a2a);
+            border-left: 3px solid #4CAF50;
+        }
+
+        .sidebar-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            background: #1a1a1a;
+        }
+
+        .sidebar-content.active {
+            max-height: 500px;
+            padding: 15px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-input {
+            width: 100%;
+            padding: 10px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .control-input:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+        }
+
+        .control-slider {
+            width: 100%;
+            margin: 10px 0;
+            height: 6px;
+            border-radius: 3px;
+            background: #333;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .control-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .control-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            color: #e0e0e0;
+            cursor: pointer;
+            padding: 8px 0;
+        }
+
+        .checkbox-label input {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #555, #666);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: #0a0a0a;
+        }
+
+        #map {
+            flex: 1;
+            background: #0a0a0a;
+            z-index: 1;
+        }
+
+        /* Mining Sites List */
+        .sites-list {
+            padding: 0;
+        }
+
+        .site-item {
+            padding: 12px;
+            background: #2a2a2a;
+            margin-bottom: 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+
+        .site-item:hover {
+            background: #333;
+            border-left-color: #4CAF50;
+            transform: translateX(3px);
+        }
+
+        .site-item.active {
+            background: linear-gradient(90deg, #1a3d1a, #2a2a2a);
+            border-left-color: #4CAF50;
+        }
+
+        .site-name {
+            font-weight: 600;
+            color: #e0e0e0;
+            margin-bottom: 4px;
+        }
+
+        .site-details {
+            font-size: 12px;
+            color: #999;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-active {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+        }
+
+        .status-inactive {
+            background: rgba(158, 158, 158, 0.2);
+            color: #9e9e9e;
+        }
+
+        .status-illegal {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+        }
+
+        /* Info Panel */
+        .info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, rgba(26, 26, 26, 0.95), rgba(35, 35, 35, 0.95));
+            backdrop-filter: blur(10px);
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            min-width: 380px;
+            z-index: 500;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            animation: slideInLeft 0.5s ease-out;
+        }
+
+        @keyframes slideInLeft {
+            from {
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .info-header {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #4CAF50;
+            font-weight: 600;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(51, 51, 51, 0.5);
+        }
+
+        .info-label {
+            color: #999;
+            font-size: 13px;
+        }
+
+        .info-value {
+            color: #e0e0e0;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        /* Loading Indicator */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 1000;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #333;
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Floating Action Buttons */
+        .fab-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 500;
+        }
+
+        .fab {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+            font-size: 20px;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .fab:active {
+            transform: scale(0.95);
+        }
+
+        /* Statistics Panel */
+        .stats-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, rgba(26, 26, 26, 0.95), rgba(35, 35, 35, 0.95));
+            backdrop-filter: blur(10px);
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            width: 300px;
+            z-index: 500;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .stat-card {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 3px solid #4CAF50;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .stat-change {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .stat-change.positive {
+            color: #4CAF50;
+        }
+
+        .stat-change.negative {
+            color: #f44336;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1200px) {
+            .sidebar {
+                width: 280px;
+            }
+            .stats-panel {
+                width: 250px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: absolute;
+                z-index: 999;
+                height: 100%;
+            }
+            .info-panel {
+                min-width: 320px;
+            }
+            .header-controls {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">⛏️ ORENEXUS</div>
+            <div class="header-controls">
+                <button class="btn" onclick="uploadAOI()">📤 Upload AOI</button>
+                <input type="date" class="date-picker" id="datePicker" value="2025-10-07">
+                <input type="time" class="time-picker" value="14:30">
+                <select class="satellite-select" id="satelliteSelect">
+                    <option>Landsat-8</option>
+                    <option>Sentinel-2</option>
+                    <option>WorldView-3</option>
+                    <option>Planet</option>
+                </select>
+                <div class="view-toggle">
+                    <button class="active" onclick="setView('2D', this)">2D Map</button>
+                    <button onclick="setView('3D', this)">3D Terrain</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Sidebar -->
+            <div class="sidebar" id="sidebar">
+                <!-- Mining Sites -->
+                <div class="sidebar-section">
+                    <div class="sidebar-header active" onclick="toggleSection(this)">
+                        <span>📍 Mining Sites</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="sidebar-content active">
+                        <div class="sites-list" id="sitesList">
+                            <!-- Sites will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Layer Controls -->
+                <div class="sidebar-section">
+                    <div class="sidebar-header" onclick="toggleSection(this)">
+                        <span>🗺️ Layer Controls</span>
+                        <span>▶</span>
+                    </div>
+                    <div class="sidebar-content">
+                        <div class="control-group">
+                            <label class="control-label">Base Layer</label>
+                            <select class="control-input" id="baseLayerSelect" onchange="changeBaseLayer(this.value)">
+                                <option value="satellite">Satellite Imagery</option>
+                                <option value="terrain">Terrain Map</option>
+                                <option value="streets">Street Map</option>
+                                <option value="dark">Dark Mode</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="miningOverlay" checked onchange="toggleMiningOverlay(this.checked)">
+                                Mining Areas Overlay
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="boundaryOverlay" onchange="toggleBoundaryLayer(this.checked)">
+                                Legal Boundaries
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="heatmapOverlay" onchange="toggleHeatmap(this.checked)">
+                                Activity Heatmap
+                            </label>
+                        </div>
+                        <div class="control-group">
+                            <label class="control-label">Layer Opacity</label>
+                            <input type="range" class="control-slider" id="opacitySlider" min="0" max="100" value="70" 
+                                   oninput="updateOpacity(this.value)">
+                            <div style="text-align: center; color: #999; font-size: 12px;">
+                                <span id="opacityValue">70%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visualization Settings -->
+                <div class="sidebar-section">
+                    <div class="sidebar-header" onclick="toggleSection(this)">
+                        <span>🎨 Visualization</span>
+                        <span>▶</span>
+                    </div>
+                    <div class="sidebar-content">
+                        <div class="control-group">
+                            <label class="control-label">Band Combination</label>
+                            <select class="control-input">
+                                <option>Natural Color (RGB)</option>
+                                <option>False Color (NIR)</option>
+                                <option>NDVI Vegetation</option>
+                                <option>NDWI Water Index</option>
+                                <option>Mineral Composite</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label class="control-label">Enhancement</label>
+                            <select class="control-input">
+                                <option>Auto-Enhance</option>
+                                <option>High Contrast</option>
+                                <option>Edge Detection</option>
+                                <option>None</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analysis Tools -->
+                <div class="sidebar-section">
+                    <div class="sidebar-header" onclick="toggleSection(this)">
+                        <span>🔬 Analysis Tools</span>
+                        <span>▶</span>
+                    </div>
+                    <div class="sidebar-content">
+                        <div class="button-group">
+                            <button class="btn" onclick="detectMining()">🔍 Auto Detect</button>
+                            <button class="btn btn-secondary" onclick="calculateVolume()">📊 Volume</button>
+                            <button class="btn btn-warning" onclick="compareImages()">🔄 Compare</button>
+                            <button class="btn btn-danger" onclick="detectIllegal()">⚠️ Violations</button>
+                        </div>
+                        <div class="control-group" style="margin-top: 20px;">
+                            <label class="control-label">Detection Sensitivity</label>
+                            <select class="control-input">
+                                <option>High (More Detections)</option>
+                                <option selected>Medium (Balanced)</option>
+                                <option>Low (Fewer False Positives)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reports & Export -->
+                <div class="sidebar-section">
+                    <div class="sidebar-header" onclick="toggleSection(this)">
+                        <span>📄 Reports</span>
+                        <span>▶</span>
+                    </div>
+                    <div class="sidebar-content">
+                        <div class="button-group">
+                            <button class="btn" onclick="generateReport()">📝 Report</button>
+                            <button class="btn btn-secondary" onclick="exportData()">💾 Export</button>
+                            <button class="btn btn-secondary" onclick="printMap()">🖨️ Print</button>
+                            <button class="btn btn-warning" onclick="shareMap()">📤 Share</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="main-content">
+                <div id="map"></div>
+                
+                <!-- Loading Indicator -->
+                <div class="loading" id="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 10px; color: #4CAF50;">Processing...</p>
+                </div>
+
+                <!-- Info Panel -->
+                <div class="info-panel" id="infoPanel">
+                    <div class="info-header">📊 Site Information</div>
+                    <div id="siteInfo">
+                        <div class="info-row">
+                            <span class="info-label">Select a mining site to view details</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics Panel -->
+                <div class="stats-panel" id="statsPanel">
+                    <div class="info-header">📈 Real-time Statistics</div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Mining Area</div>
+                        <div class="stat-value" id="totalArea">45.2 ha</div>
+                        <div class="stat-change positive">↑ 2.3% this month</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Active Sites</div>
+                        <div class="stat-value" id="activeSites">12</div>
+                        <div class="stat-change">No change</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Violations Detected</div>
+                        <div class="stat-value" id="violations" style="color: #f44336;">3</div>
+                        <div class="stat-change negative">↑ 1 new today</div>
+                    </div>
+                </div>
+
+                <!-- Floating Action Buttons -->
+                <div class="fab-container">
+                    <button class="fab" onclick="measureTool()" title="Measure Distance">📏</button>
+                    <button class="fab" onclick="drawPolygon()" title="Draw Area">✏️</button>
+                    <button class="fab" onclick="captureSnapshot()" title="Capture">📸</button>
+                    <button class="fab" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+    <script>
+        // Global variables
+        let map;
+        let miningSites = [];
+        let currentBaseLayer;
+        let miningLayers = [];
+        let boundaryLayers = [];
+        let selectedSite = null;
+        let drawnItems;
+
+        // Sample mining sites data with Indian locations
+        const sampleSites = [
+            {
+                id: 1,
+                name: "Jharia Coal Mine",
+                location: [23.7957, 86.4304],
+                status: "active",
+                area: 12.5,
+                depth: 45.2,
+                volume: 2.3,
+                type: "Coal",
+                operator: "BCCL",
+                illegal: false,
+                coordinates: [[23.795, 86.430], [23.798, 86.433], [23.796, 86.436], [23.793, 86.434], [23.792, 86.431]]
+            },
+            {
+                id: 2,
+                name: "Bailadila Iron Mine",
+                location: [18.6294, 81.2849],
+                status: "active",
+                area: 8.3,
+                depth: 62.8,
+                volume: 3.1,
+                type: "Iron Ore",
+                operator: "NMDC",
+                illegal: false,
+                coordinates: [[18.628, 81.283], [18.631, 81.286], [18.630, 81.289], [18.627, 81.287], [18.626, 81.284]]
+            },
+            {
+                id: 3,
+                name: "Kolar Gold Fields",
+                location: [12.9565, 78.2690],
+                status: "inactive",
+                area: 15.7,
+                depth: 89.4,
+                volume: 4.5,
+                type: "Gold",
+                operator: "BGML (Closed)",
+                illegal: false,
+                coordinates: [[12.955, 78.268], [12.958, 78.271], [12.957, 78.273], [12.954, 78.271], [12.953, 78.269]]
+            },
+            {
+                id: 4,
+                name: "Illegal Sand Mining Site",
+                location: [25.5941, 85.1376],
+                status: "illegal",
+                area: 0.8,
+                depth: 12.3,
+                volume: 0.2,
+                type: "Sand",
+                operator: "Unknown",
+                illegal: true,
+                coordinates: [[25.593, 85.137], [25.594, 85.138], [25.594, 85.139], [25.593, 85.138]]
+            },
+            {
+                id: 5,
+                name: "Panna Diamond Mine",
+                location: [24.7180, 80.0785],
+                status: "active",
+                area: 6.2,
+                depth: 38.6,
+                volume: 1.8,
+                type: "Diamond",
+                operator: "NMDC",
+                illegal: false,
+                coordinates: [[24.717, 80.077], [24.719, 80.079], [24.718, 80.081], [24.716, 80.080], [24.715, 80.078]]
+            },
+            {
+                id: 6,
+                name: "Zawar Zinc Mine",
+                location: [24.3509, 73.7120],
+                status: "active",
+                area: 9.8,
+                depth: 55.7,
+                volume: 2.9,
+                type: "Zinc",
+                operator: "Hindustan Zinc",
+                illegal: false,
+                coordinates: [[24.350, 73.711], [24.352, 73.713], [24.351, 73.715], [24.349, 73.714], [24.348, 73.712]]
+            },
+            {
+                id: 7,
+                name: "Illegal Quarry Site",
+                location: [26.8467, 80.9462],
+                status: "illegal",
+                area: 1.2,
+                depth: 8.5,
+                volume: 0.1,
+                type: "Stone",
+                operator: "Unknown",
+                illegal: true,
+                coordinates: [[26.846, 80.945], [26.847, 80.947], [26.846, 80.948], [26.845, 80.946]]
+            },
+            {
+                id: 8,
+                name: "Singareni Coal Mine",
+                location: [18.4386, 79.4192],
+                status: "active",
+                area: 18.4,
+                depth: 72.3,
+                volume: 5.2,
+                type: "Coal",
+                operator: "SCCL",
+                illegal: false,
+                coordinates: [[18.437, 79.418], [18.440, 79.421], [18.439, 79.423], [18.436, 79.421], [18.435, 79.419]]
+            },
+            {
+                id: 9,
+                name: "Kudremukh Iron Mine",
+                location: [13.1341, 75.2537],
+                status: "inactive",
+                area: 11.3,
+                depth: 48.9,
+                volume: 3.7,
+                type: "Iron Ore",
+                operator: "KIOCL (Closed)",
+                illegal: false,
+                coordinates: [[13.133, 75.252], [13.135, 75.255], [13.134, 75.257], [13.132, 75.255], [13.131, 75.253]]
+            },
+            {
+                id: 10,
+                name: "Malanjkhand Copper Mine",
+                location: [22.0217, 80.7221],
+                status: "active",
+                area: 7.6,
+                depth: 41.2,
+                volume: 2.1,
+                type: "Copper",
+                operator: "HCL",
+                illegal: false,
+                coordinates: [[22.020, 80.721], [22.023, 80.724], [22.022, 80.726], [22.019, 80.724], [22.018, 80.722]]
+            }
+        ];
+
+        // Initialize map
+        function initMap() {
+            // Create map centered on India
+            map = L.map('map', {
+                center: [20.5937, 78.9629],
+                zoom: 5,
+                zoomControl: false
+            });
+
+            // Add zoom control to bottom right
+            L.control.zoom({
+                position: 'bottomright'
+            }).addTo(map);
+
+            // Add scale control
+            L.control.scale({
+                position: 'bottomleft'
+            }).addTo(map);
+
+            // Initialize base layer
+            changeBaseLayer('satellite');
+
+            // Add drawing controls
+            drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+
+            // Load mining sites
+            loadMiningSites();
+            
+            // Populate sites list
+            populateSitesList();
+        }
+
+        // Load mining sites on map
+        function loadMiningSites() {
+            sampleSites.forEach(site => {
+                // Determine color based on status
+                let color, fillColor;
+                switch(site.status) {
+                    case 'active':
+                        color = '#4CAF50';
+                        fillColor = '#66BB6A';
+                        break;
+                    case 'inactive':
+                        color = '#9E9E9E';
+                        fillColor = '#BDBDBD';
+                        break;
+                    case 'illegal':
+                        color = '#F44336';
+                        fillColor = '#EF5350';
+                        break;
+                }
+
+                // Create polygon for mining area
+                const polygon = L.polygon(site.coordinates, {
+                    color: color,
+                    weight: 3,
+                    opacity: 0.8,
+                    fillOpacity: 0.3,
+                    fillColor: fillColor
+                }).addTo(map);
+
+                // Add popup
+                const popupContent = `
+                    <div style="min-width: 200px;">
+                        <h4 style="margin: 0 0 10px 0; color: ${color};">${site.name}</h4>
+                        <table style="width: 100%; font-size: 12px;">
+                            <tr><td><b>Type:</b></td><td>${site.type}</td></tr>
+                            <tr><td><b>Status:</b></td><td>${site.status.toUpperCase()}</td></tr>
+                            <tr><td><b>Operator:</b></td><td>${site.operator}</td></tr>
+                            <tr><td><b>Area:</b></td><td>${site.area} ha</td></tr>
+                            <tr><td><b>Depth:</b></td><td>${site.depth} m</td></tr>
+                            <tr><td><b>Volume:</b></td><td>${site.volume} M m³</td></tr>
+                        </table>
+                    </div>
+                `;
+                polygon.bindPopup(popupContent);
+
+                // Add click event
+                polygon.on('click', () => selectSite(site));
+
+                // Store reference
+                site.polygon = polygon;
+                miningLayers.push(polygon);
+
+                // Add marker for better visibility at low zoom
+                const marker = L.circleMarker(site.location, {
+                    radius: 6,
+                    fillColor: color,
+                    color: "#fff",
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+
+                marker.on('click', () => {
+                    map.setView(site.location, 14);
+                    selectSite(site);
+                });
+            });
+        }
+
+        // Populate sites list in sidebar
+        function populateSitesList() {
+            const sitesList = document.getElementById('sitesList');
+            sitesList.innerHTML = '';
+
+            sampleSites.forEach(site => {
+                const siteItem = document.createElement('div');
+                siteItem.className = 'site-item';
+                siteItem.onclick = () => {
+                    map.setView(site.location, 14);
+                    selectSite(site);
+                };
+
+                let statusClass = 'status-active';
+                if (site.status === 'inactive') statusClass = 'status-inactive';
+                if (site.status === 'illegal') statusClass = 'status-illegal';
+
+                siteItem.innerHTML = `
+                    <div class="site-name">${site.name}</div>
+                    <div class="site-details">
+                        <span>${site.type} • ${site.area} ha</span>
+                        <span class="status-badge ${statusClass}">${site.status}</span>
+                    </div>
+                `;
+
+                sitesList.appendChild(siteItem);
+            });
+        }
+
+        // Select a mining site
+        function selectSite(site) {
+            selectedSite = site;
+            
+            // Update site items visual state
+            document.querySelectorAll('.site-item').forEach((item, index) => {
+                if (sampleSites[index].id === site.id) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+
+            // Update info panel
+            updateInfoPanel(site);
+            
+            // Highlight selected polygon
+            miningLayers.forEach(layer => {
+                layer.setStyle({ weight: 3 });
+            });
+            if (site.polygon) {
+                site.polygon.setStyle({ weight: 5 });
+            }
+        }
+
+        // Update info panel with site details
+        function updateInfoPanel(site) {
+            const siteInfo = document.getElementById('siteInfo');
+            
+            let statusColor = '#4CAF50';
+            if (site.status === 'inactive') statusColor = '#9E9E9E';
+            if (site.status === 'illegal') statusColor = '#F44336';
+
+            siteInfo.innerHTML = `
+                <div class="info-row">
+                    <span class="info-label">Name:</span>
+                    <span class="info-value">${site.name}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">ID:</span>
+                    <span class="info-value">#${site.id.toString().padStart(5, '0')}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Type:</span>
+                    <span class="info-value">${site.type}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Location:</span>
+                    <span class="info-value">${site.location[0].toFixed(4)}°N, ${site.location[1].toFixed(4)}°E</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Status:</span>
+                    <span class="info-value" style="color: ${statusColor}; font-weight: bold;">${site.status.toUpperCase()}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Operator:</span>
+                    <span class="info-value">${site.operator}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Mining Area:</span>
+                    <span class="info-value">${site.area} hectares</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Average Depth:</span>
+                    <span class="info-value">${site.depth} meters</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Estimated Volume:</span>
+                    <span class="info-value">${site.volume} M m³</span>
+                </div>
+                ${site.illegal ? `
+                <div class="info-row">
+                    <span class="info-label">Violation:</span>
+                    <span class="info-value" style="color: #F44336;">⚠️ Illegal Mining Detected</span>
+                </div>
+                ` : ''}
+            `;
+        }
+
+        // Toggle sidebar section
+        function toggleSection(header) {
+            const content = header.nextElementSibling;
+            const arrow = header.querySelector('span:last-child');
+            const isActive = content.classList.contains('active');
+            
+            // Close all sections
+            document.querySelectorAll('.sidebar-content').forEach(c => {
+                c.classList.remove('active');
+            });
+            document.querySelectorAll('.sidebar-header').forEach(h => {
+                h.classList.remove('active');
+                h.querySelector('span:last-child').textContent = '▶';
+            });
+            
+            // Open clicked section if it was closed
+            if (!isActive) {
+                content.classList.add('active');
+                header.classList.add('active');
+                arrow.textContent = '▼';
+            }
+        }
+
+        // Change base layer
+        function changeBaseLayer(layerType) {
+            if (currentBaseLayer) {
+                map.removeLayer(currentBaseLayer);
+            }
+
+            switch(layerType) {
+                case 'satellite':
+                    currentBaseLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        attribution: '© Esri'
+                    });
+                    break;
+                case 'terrain':
+                    currentBaseLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenTopoMap'
+                    });
+                    break;
+                case 'streets':
+                    currentBaseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap'
+                    });
+                    break;
+                case 'dark':
+                    currentBaseLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
+                        attribution: '© Stadia Maps'
+                    });
+                    break;
+            }
+            
+            currentBaseLayer.addTo(map);
+        }
+
+        // Toggle mining overlay
+        function toggleMiningOverlay(show) {
+            miningLayers.forEach(layer => {
+                if (show) {
+                    layer.setStyle({ opacity: 0.8 });
+                } else {
+                    layer.setStyle({ opacity: 0 });
+                }
+            });
+        }
+
+        // Toggle boundary layer
+        function toggleBoundaryLayer(show) {
+            // Remove existing boundaries
+            boundaryLayers.forEach(layer => map.removeLayer(layer));
+            boundaryLayers = [];
+
+            if (show) {
+                // Add legal boundaries around mining sites
+                sampleSites.forEach(site => {
+                    if (!site.illegal) {
+                        // Create slightly larger boundary
+                        const bounds = L.polygon(site.coordinates).getBounds();
+                        const pad = 0.001;
+                        const boundaryCoords = [
+                            [bounds.getSouth() - pad, bounds.getWest() - pad],
+                            [bounds.getNorth() + pad, bounds.getWest() - pad],
+                            [bounds.getNorth() + pad, bounds.getEast() + pad],
+                            [bounds.getSouth() - pad, bounds.getEast() + pad]
+                        ];
+
+                        const boundary = L.rectangle(boundaryCoords, {
+                            color: '#00FF00',
+                            weight: 2,
+                            opacity: 0.6,
+                            fillOpacity: 0.05,
+                            fillColor: '#00FF00',
+                            dashArray: '10, 5'
+                        }).addTo(map);
+
+                        boundaryLayers.push(boundary);
+                    }
+                });
+            }
+        }
+
+        // Toggle heatmap
+        function toggleHeatmap(show) {
+            if (show) {
+                alert('Heatmap visualization showing mining activity intensity');
+            }
+        }
+
+        // Update opacity
+        function updateOpacity(value) {
+            document.getElementById('opacityValue').textContent = value + '%';
+            miningLayers.forEach(layer => {
+                layer.setStyle({ fillOpacity: value / 100 * 0.5 });
+            });
+        }
+
+        // Analysis functions
+        function detectMining() {
+            showLoading();
+            setTimeout(() => {
+                hideLoading();
+                const newSites = Math.floor(Math.random() * 3) + 1;
+                alert(`🔍 Mining Detection Complete!\n\n✅ ${newSites} new mining areas detected\n✅ ${sampleSites.filter(s => s.status === 'active').length} active sites confirmed\n⚠️ ${sampleSites.filter(s => s.illegal).length} potential violations identified\n\nTotal area analyzed: 2,450 km²\nProcessing time: 2.3 seconds`);
+                updateStats();
+            }, 2000);
+        }
+
+        function calculateVolume() {
+            showLoading();
+            setTimeout(() => {
+                hideLoading();
+                if (selectedSite) {
+                    alert(`📊 Volume Calculation for ${selectedSite.name}\n\nMethod: Digital Elevation Model (DEM) Analysis\n\nResults:\n• Total Volume: ${selectedSite.volume} M m³\n• Average Depth: ${selectedSite.depth} m\n• Max Depth: ${(selectedSite.depth * 1.8).toFixed(1)} m\n• Surface Area: ${selectedSite.area} ha\n\nAccuracy: ±5%\nConfidence Level: 95%`);
+                } else {
+                    alert('Please select a mining site first');
+                }
+            }, 1500);
+        }
+
+        function compareImages() {
+            alert('📅 Temporal Analysis\n\nSelect two dates to compare:\n• Before: Previous satellite capture\n• After: Current satellite capture\n\nThis will highlight changes in mining areas');
+        }
+
+        function detectIllegal() {
+            showLoading();
+            setTimeout(() => {
+                hideLoading();
+                const illegalSites = sampleSites.filter(s => s.illegal);
+                let report = '⚠️ ILLEGAL MINING DETECTION REPORT\n\n';
+                illegalSites.forEach(site => {
+                    report += `📍 ${site.name}\n`;
+                    report += `   Location: ${site.location[0].toFixed(4)}°N, ${site.location[1].toFixed(4)}°E\n`;
+                    report += `   Area: ${site.area} hectares\n`;
+                    report += `   Type: ${site.type}\n\n`;
+                });
+                report += `Total Violations: ${illegalSites.length}\nRecommendation: Immediate inspection required`;
+                alert(report);
+            }, 2000);
+        }
+
+        function generateReport() {
+            const timestamp = new Date().toLocaleString('en-IN');
+            let report = `ORENEXUS MINING ACTIVITY REPORT\n${'='.repeat(40)}\n`;
+            report += `Generated: ${timestamp}\n\n`;
+            report += `EXECUTIVE SUMMARY\n${'-'.repeat(20)}\n`;
+            report += `Total Sites Monitored: ${sampleSites.length}\n`;
+            report += `Active Mining Sites: ${sampleSites.filter(s => s.status === 'active').length}\n`;
+            report += `Inactive Sites: ${sampleSites.filter(s => s.status === 'inactive').length}\n`;
+            report += `Illegal Operations: ${sampleSites.filter(s => s.illegal).length}\n\n`;
+            
+            report += `DETAILED SITE LIST\n${'-'.repeat(20)}\n`;
+            sampleSites.forEach(site => {
+                report += `\n${site.name}\n`;
+                report += `  Status: ${site.status.toUpperCase()}\n`;
+                report += `  Type: ${site.type}\n`;
+                report += `  Area: ${site.area} ha | Volume: ${site.volume} M m³\n`;
+            });
+
+            report += `\n\nRECOMMENDATIONS\n${'-'.repeat(20)}\n`;
+            report += `1. Immediate inspection of illegal sites\n`;
+            report += `2. Environmental impact assessment needed\n`;
+            report += `3. Update compliance documentation\n`;
+
+            alert(report);
+            console.log(report);
+        }
+
+        function exportData() {
+            const formats = ['GeoJSON', 'KML', 'Shapefile', 'CSV', 'PDF Report'];
+            const selected = prompt(`Export formats available:\n${formats.join('\n')}\n\nEnter format:`, 'GeoJSON');
+            if (selected) {
+                showLoading();
+                setTimeout(() => {
+                    hideLoading();
+                    alert(`✅ Export Successful!\n\nFormat: ${selected}\nFile: ORENEXUS_Mining_Data_${Date.now()}.${selected.toLowerCase()}\n\nThe file has been prepared for download.`);
+                }, 1000);
+            }
+        }
+
+        // View functions
+        function setView(mode, button) {
+            document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+            button.classList.add('active');
+            
+            if (mode === '3D') {
+                alert('🎮 3D Terrain View\n\nThis will open an interactive 3D visualization of the mining area with:\n• Elevation data\n• Depth analysis\n• Volume rendering\n\n(Feature requires WebGL support)');
+            }
+        }
+
+        // Tool functions
+        function uploadAOI() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.shp,.kml,.kmz,.geojson,.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (file) {
+                    showLoading();
+                    setTimeout(() => {
+                        hideLoading();
+                        alert(`✅ AOI Successfully Uploaded!\n\nFile: ${file.name}\nSize: ${(file.size / 1024).toFixed(2)} KB\n\nThe area of interest has been added to the map.`);
+                    }, 1500);
+                }
+            };
+            input.click();
+        }
+
+        function measureTool() {
+            alert('📏 Measurement Tool Active\n\nClick on the map to:\n• Measure distances between points\n• Calculate areas of polygons\n• Measure elevation profiles\n\nDouble-click to finish measurement');
+        }
+
+        function drawPolygon() {
+            const drawControl = new L.Control.Draw({
+                position: 'topright',
+                draw: {
+                    polygon: {
+                        shapeOptions: {
+                            color: '#FF6B6B',
+                            weight: 3
+                        }
+                    },
+                    polyline: false,
+                    rectangle: true,
+                    circle: false,
+                    circlemarker: false,
+                    marker: false
+                },
+                edit: {
+                    featureGroup: drawnItems
+                }
+            });
+            map.addControl(drawControl);
+            
+            map.on(L.Draw.Event.CREATED, function (e) {
+                const layer = e.layer;
+                drawnItems.addLayer(layer);
+                
+                // Calculate area
+                if (e.layerType === 'polygon' || e.layerType === 'rectangle') {
+                    const area = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]) / 10000;
+                    alert(`Area drawn: ${area.toFixed(2)} hectares`);
+                }
+            });
+
+            alert('✏️ Drawing Tools Activated\n\nDraw polygons or rectangles to:\n• Mark areas of interest\n• Define new mining boundaries\n• Highlight potential violations');
+        }
+
+        function captureSnapshot() {
+            alert('📸 Snapshot Captured!\n\nCurrent view has been saved with:\n• Timestamp: ' + new Date().toLocaleString() + '\n• Coordinates: ' + map.getCenter().lat.toFixed(4) + '°N, ' + map.getCenter().lng.toFixed(4) + '°E\n• Zoom Level: ' + map.getZoom());
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function printMap() {
+            window.print();
+        }
+
+        function shareMap() {
+            const shareUrl = window.location.href + '#lat=' + map.getCenter().lat.toFixed(4) + '&lng=' + map.getCenter().lng.toFixed(4) + '&zoom=' + map.getZoom();
+            navigator.clipboard.writeText(shareUrl);
+            alert('🔗 Share Link Copied!\n\nThe current map view link has been copied to clipboard.\n\nAnyone with this link can view the same location and zoom level.');
+        }
+
+        // Update statistics
+        function updateStats() {
+            // Simulate real-time updates
+            const totalArea = sampleSites.reduce((sum, site) => sum + site.area, 0);
+            document.getElementById('totalArea').textContent = totalArea.toFixed(1) + ' ha';
+            
+            const activeSites = sampleSites.filter(s => s.status === 'active').length;
+            document.getElementById('activeSites').textContent = activeSites;
+            
+            const violations = sampleSites.filter(s => s.illegal).length;
+            document.getElementById('violations').textContent = violations;
+        }
+
+        // Utility functions
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Simulate real-time data updates
+        function startRealTimeUpdates() {
+            setInterval(() => {
+                // Randomly update some statistics
+                if (Math.random() > 0.7) {
+                    const area = (45.2 + (Math.random() - 0.5) * 2).toFixed(1);
+                    document.getElementById('totalArea').textContent = area + ' ha';
+                }
+            }, 5000);
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 's':
+                        e.preventDefault();
+                        exportData();
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        generateReport();
+                        break;
+                    case 'd':
+                        e.preventDefault();
+                        detectMining();
+                        break;
+                    case 'f':
+                        e.preventDefault();
+                        toggleFullscreen();
+                        break;
+                }
+            }
+        });
+
+        // Initialize everything when page loads
+        window.onload = () => {
+            initMap();
+            updateStats();
+            startRealTimeUpdates();
+            
+            // Show welcome notification
+            console.log('%c⛏️ ORENEXUS Mining Monitor ', 
+                'background: linear-gradient(135deg, #4CAF50, #8BC34A); color: white; font-size: 20px; padding: 10px 20px; border-radius: 5px;');
+            console.log('System initialized successfully');
+            console.log('Keyboard shortcuts: Ctrl+S (Export), Ctrl+R (Report), Ctrl+D (Detect), Ctrl+F (Fullscreen)');
+        };
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (map) {
+                map.invalidateSize();
+            }
+        });
+    </script>
+</body>
+</html>

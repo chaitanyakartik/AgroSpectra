@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORENEXUS - Mining Activity Monitor</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: linear-gradient(90deg, #1a1a1a 0%, #2a2a2a 100%);
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 1000;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+            margin-right: auto;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .date-picker, .time-picker {
+            padding: 8px 12px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            border-radius: 4px;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 5px;
+            background: #2a2a2a;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .view-toggle button {
+            padding: 6px 12px;
+            background: transparent;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .view-toggle button.active {
+            background: #4CAF50;
+            color: white;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 300px;
+            background: #1a1a1a;
+            border-right: 1px solid #333;
+            margin-top: 60px;
+            overflow-y: auto;
+            transition: all 0.3s;
+        }
+
+        .sidebar.collapsed {
+            width: 50px;
+        }
+
+        .sidebar-section {
+            border-bottom: 1px solid #333;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            background: #222;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.3s;
+        }
+
+        .sidebar-header:hover {
+            background: #2a2a2a;
+        }
+
+        .sidebar-content {
+            padding: 15px;
+            display: none;
+        }
+
+        .sidebar-content.active {
+            display: block;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #999;
+        }
+
+        .control-input {
+            width: 100%;
+            padding: 8px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            border-radius: 4px;
+        }
+
+        .control-slider {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex: 1;
+        }
+
+        .btn:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #555;
+        }
+
+        .btn-danger {
+            background: #f44336;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-top: 60px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #map {
+            flex: 1;
+            background: #0a0a0a;
+        }
+
+        /* Info Panel */
+        .info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(26, 26, 26, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            min-width: 350px;
+            z-index: 500;
+        }
+
+        .info-header {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #4CAF50;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .info-label {
+            color: #999;
+        }
+
+        .info-value {
+            color: #e0e0e0;
+            font-weight: 500;
+        }
+
+        .status-active {
+            color: #4CAF50;
+        }
+
+        .status-illegal {
+            color: #f44336;
+        }
+
+        /* Charts Panel */
+        .charts-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(26, 26, 26, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            width: 400px;
+            z-index: 500;
+        }
+
+        .chart-container {
+            height: 200px;
+            margin-top: 15px;
+        }
+
+        /* 3D View Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 20px;
+            width: 80%;
+            height: 80%;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #threejs-container {
+            width: 100%;
+            height: calc(100% - 40px);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        /* Loading Indicator */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #333;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Floating Action Buttons */
+        .fab-container {
+            position: absolute;
+            bottom: 20px;
+            right: 380px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 500;
+        }
+
+        .fab {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: #4CAF50;
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1500;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">ORENEXUS</div>
+            <div class="header-controls">
+                <button class="btn" onclick="uploadAOI()">📤 Upload AOI</button>
+                <input type="date" class="date-picker" value="2025-09-25">
+                <input type="time" class="time-picker" value="11:25">
+                <select class="control-input" style="width: 150px;">
+                    <option>Landsat-8</option>
+                    <option>Sentinel-2</option>
+                    <option>WorldView-3</option>
+                </select>
+                <div class="view-toggle">
+                    <button class="active" onclick="setView('2D', this)">2D</button>
+                    <button onclick="setView('3D', this)">3D</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <!-- Layer Controls -->
+            <div class="sidebar-section">
+                <div class="sidebar-header" onclick="toggleSection(this)">
+                    <span>Layer Controls</span>
+                    <span>▼</span>
+                </div>
+                <div class="sidebar-content active">
+                    <div class="control-group">
+                        <label class="control-label">Base Layer</label>
+                        <select class="control-input" onchange="changeBaseLayer(this.value)">
+                            <option value="satellite">Satellite</option>
+                            <option value="terrain">Terrain</option>
+                            <option value="streets">Streets</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <input type="checkbox" checked onchange="toggleMiningOverlay(this.checked)">
+                            Mining Areas Overlay
+                        </label>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <input type="checkbox" onchange="toggleBoundaryLayer(this.checked)">
+                            Legal Boundary
+                        </label>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Opacity</label>
+                        <input type="range" class="control-slider" min="0" max="100" value="70" 
+                               onchange="updateOpacity(this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualization Settings -->
+            <div class="sidebar-section">
+                <div class="sidebar-header" onclick="toggleSection(this)">
+                    <span>Visualization Settings</span>
+                    <span>▼</span>
+                </div>
+                <div class="sidebar-content">
+                    <div class="control-group">
+                        <label class="control-label">Band Combination</label>
+                        <select class="control-input">
+                            <option>Natural Color (4-3-2)</option>
+                            <option>False Color (5-4-3)</option>
+                            <option>NDVI</option>
+                            <option>NDWI</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Brightness</label>
+                        <input type="range" class="control-slider" min="-100" max="100" value="0">
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Contrast</label>
+                        <input type="range" class="control-slider" min="-100" max="100" value="0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Tools -->
+            <div class="sidebar-section">
+                <div class="sidebar-header" onclick="toggleSection(this)">
+                    <span>Filter Tools</span>
+                    <span>▼</span>
+                </div>
+                <div class="sidebar-content">
+                    <div class="control-group">
+                        <label class="control-label">Date Range</label>
+                        <input type="date" class="control-input" style="margin-bottom: 5px;">
+                        <input type="date" class="control-input">
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Cloud Coverage (%)</label>
+                        <input type="range" class="control-slider" min="0" max="100" value="20">
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <input type="checkbox"> Show Illegal Mining Only
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytical Tools -->
+            <div class="sidebar-section">
+                <div class="sidebar-header" onclick="toggleSection(this)">
+                    <span>Analytical Tools</span>
+                    <span>▼</span>
+                </div>
+                <div class="sidebar-content">
+                    <div class="button-group">
+                        <button class="btn" onclick="detectMining()">🔍 Detect Mining</button>
+                        <button class="btn btn-secondary" onclick="calculateVolume()">📊 Calculate Volume</button>
+                    </div>
+                    <div class="button-group">
+                        <button class="btn btn-secondary" onclick="timeSeriesAnalysis()">📈 Time Series</button>
+                        <button class="btn btn-danger" onclick="detectIllegal()">⚠️ Illegal Detection</button>
+                    </div>
+                    <div class="button-group">
+                        <button class="btn" onclick="generateReport()">📄 Generate Report</button>
+                        <button class="btn btn-secondary" onclick="exportData()">💾 Export Data</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div id="map"></div>
+            
+            <!-- Loading Indicator -->
+            <div class="loading" id="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p style="margin-top: 10px;">Processing...</p>
+            </div>
+
+            <!-- Info Panel -->
+            <div class="info-panel" id="infoPanel">
+                <div class="info-header">Selected Mining Site</div>
+                <div class="info-row">
+                    <span class="info-label">Name:</span>
+                    <span class="info-value">Chainpur Mine</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">ID:</span>
+                    <span class="info-value">38472</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Location:</span>
+                    <span class="info-value">45.2120°N, -116.3869°E</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Status:</span>
+                    <span class="info-value status-active">Active</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Mining Area:</span>
+                    <span class="info-value">5.26 ha</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Outside Boundary:</span>
+                    <span class="info-value status-illegal">0.8 ha</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Avg Depth:</span>
+                    <span class="info-value">38.6 m</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Max Depth:</span>
+                    <span class="info-value">92.4 m</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Est. Volume:</span>
+                    <span class="info-value">1.23 M m³</span>
+                </div>
+            </div>
+
+            <!-- Charts Panel -->
+            <div class="charts-panel">
+                <div class="info-header">Elevation Profile</div>
+                <canvas id="elevationChart" class="chart-container"></canvas>
+                <div style="margin-top: 20px;">
+                    <div class="info-header">Volume Growth</div>
+                    <canvas id="volumeChart" class="chart-container"></canvas>
+                </div>
+            </div>
+
+            <!-- Floating Action Buttons -->
+            <div class="fab-container">
+                <button class="fab" onclick="measureTool()" title="Measure">📏</button>
+                <button class="fab" onclick="drawPolygon()" title="Draw Area">✏️</button>
+                <button class="fab" onclick="show3DView()" title="3D View">🎮</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3D View Modal -->
+    <div class="modal" id="modal3D">
+        <div class="modal-content">
+            <button class="modal-close" onclick="close3DView()">✕ Close</button>
+            <div id="threejs-container"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // Initialize map
+        let map;
+        let miningLayer;
+        let boundaryLayer;
+        let drawnItems;
+        let currentBaseLayer;
+
+        // Initialize Leaflet Map
+        function initMap() {
+            map = L.map('map').setView([25.5941, 85.1376], 13); // Jharkhand region coordinates
+
+            // Add base layers
+            const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri'
+            });
+
+            const terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: 'Map data: &copy; OpenStreetMap contributors'
+            });
+
+            const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            });
+
+            currentBaseLayer = satellite;
+            currentBaseLayer.addTo(map);
+
+            // Add drawing controls
+            drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+
+            // Add sample mining area
+            addSampleMiningArea();
+        }
+
+        // Add sample mining area with polygon
+        function addSampleMiningArea() {
+            const miningCoords = [
+                [25.595, 85.135],
+                [25.598, 85.138],
+                [25.596, 85.142],
+                [25.592, 85.140],
+                [25.591, 85.136]
+            ];
+
+            miningLayer = L.polygon(miningCoords, {
+                color: '#FFA500',
+                weight: 3,
+                opacity: 0.8,
+                fillOpacity: 0.3,
+                fillColor: '#FFD700'
+            }).addTo(map);
+
+            miningLayer.bindPopup('<b>Chainpur Mine</b><br>Status: Active<br>Area: 5.26 ha');
+
+            // Add illegal mining area
+            const illegalCoords = [
+                [25.593, 85.143],
+                [25.594, 85.144],
+                [25.592, 85.145],
+                [25.591, 85.144]
+            ];
+
+            L.polygon(illegalCoords, {
+                color: '#FF0000',
+                weight: 3,
+                opacity: 0.8,
+                fillOpacity: 0.4,
+                fillColor: '#FF6B6B'
+            }).addTo(map).bindPopup('<b>Illegal Mining Detected!</b><br>Area: 0.8 ha');
+        }
+
+        // Sidebar functions
+        function toggleSection(header) {
+            const content = header.nextElementSibling;
+            const arrow = header.querySelector('span:last-child');
+            
+            content.classList.toggle('active');
+            arrow.textContent = content.classList.contains('active') ? '▼' : '▶';
+        }
+
+        // Layer control functions
+        function changeBaseLayer(layerType) {
+            if (currentBaseLayer) {
+                map.removeLayer(currentBaseLayer);
+            }
+
+            switch(layerType) {
+                case 'satellite':
+                    currentBaseLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
+                    break;
+                case 'terrain':
+                    currentBaseLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png');
+                    break;
+                case 'streets':
+                    currentBaseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+                    break;
+            }
+            
+            currentBaseLayer.addTo(map);
+        }
+
+        function toggleMiningOverlay(show) {
+            if (show && miningLayer) {
+                miningLayer.setStyle({ opacity: 0.8 });
+            } else if (miningLayer) {
+                miningLayer.setStyle({ opacity: 0 });
+            }
+        }
+
+        function toggleBoundaryLayer(show) {
+            if (show) {
+                // Add legal boundary
+                const boundaryCoords = [
+                    [25.590, 85.134],
+                    [25.599, 85.134],
+                    [25.599, 85.142],
+                    [25.590, 85.142]
+                ];
+
+                if (boundaryLayer) {
+                    map.removeLayer(boundaryLayer);
+                }
+
+                boundaryLayer = L.polygon(boundaryCoords, {
+                    color: '#00FF00',
+                    weight: 2,
+                    opacity: 0.8,
+                    fillOpacity: 0.1,
+                    fillColor: '#00FF00',
+                    dashArray: '10, 10'
+                }).addTo(map);
+            } else if (boundaryLayer) {
+                map.removeLayer(boundaryLayer);
+            }
+        }
+
+        function updateOpacity(value) {
+            if (miningLayer) {
+                miningLayer.setStyle({ fillOpacity: value / 100 });
+            }
+        }
+
+        // Analysis functions
+        function detectMining() {
+            showLoading();
+            setTimeout(() => {
+                hideLoading();
+                alert('Mining areas detected successfully!\n\nFound:\n- 3 Active mining sites\n- 1 Potential illegal mining area\n- Total area: 8.4 hectares');
+            }, 2000);
+        }
+
+        function calculateVolume() {
+            showLoading();
+            setTimeout(() => {
+                hideLoading();
+                alert('Volume Calculation Complete!\n\nTotal Volume: 1.23 M m³\nUsing Simpson\'s Method\nAccuracy: ±5%');
+            }, 1500);
+        }
+
+        function timeSeriesAnalysis() {
+            alert('Time series analysis will show mining progression over the selected date range.');
+        }
+
+        function detectIllegal() {
+            showLoading();
+            setTimeout(() => {
+                hideLoading();
+                alert('⚠️ Illegal Mining Detection\n\n1 area detected outside legal boundary:\n- Location: 25.593°N, 85.143°E\n- Area: 0.8 hectares\n- First detected: Sept 15, 2025');
+            }, 2000);
+        }
+
+        function generateReport() {
+            const reportContent = `
+MINING ACTIVITY REPORT
+======================
+Generated: ${new Date().toLocaleString()}
+District: East Singhbhum, Jharkhand
+
+SUMMARY
+-------
+Total Mining Area: 5.26 hectares
+Legal Mining: 4.46 hectares
+Illegal Mining: 0.8 hectares
+Average Depth: 38.6 meters
+Estimated Volume: 1.23 M m³
+
+VIOLATIONS
+----------
+1. Mining outside boundary detected
+   - Area: 0.8 hectares
+   - Location: 25.593°N, 85.143°E
+   
+RECOMMENDATIONS
+---------------
+- Immediate inspection required
+- Legal action recommended for violations
+            `;
+            
+            alert('Report Generated!\n\n' + reportContent);
+        }
+
+        function exportData() {
+            alert('Exporting data as:\n- GeoJSON boundaries\n- CSV statistics\n- PDF report');
+        }
+
+        // View functions
+        function setView(mode, button) {
+            document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+            button.classList.add('active');
+            
+            if (mode === '3D') {
+                show3DView();
+            }
+        }
+
+        function show3DView() {
+            document.getElementById('modal3D').classList.add('active');
+            init3D();
+        }
+
+        function close3DView() {
+            document.getElementById('modal3D').classList.remove('active');
+        }
+
+        // 3D Visualization
+        function init3D() {
+            const container = document.getElementById('threejs-container');
+            container.innerHTML = ''; // Clear previous content
+
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB); // Sky blue
+
+            const camera = new THREE.PerspectiveCamera(
+                75,
+                container.clientWidth / container.clientHeight,
+                0.1,
+                1000
+            );
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            // Add lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.4);
+            directionalLight.position.set(10, 10, 5);
+            scene.add(directionalLight);
+
+            // Create terrain with mining pit
+            const terrainGeometry = new THREE.PlaneGeometry(20, 20, 50, 50);
+            const terrainMaterial = new THREE.MeshPhongMaterial({
+                color: 0x8B7355,
+                wireframe: false,
+                side: THREE.DoubleSide
+            });
+
+            // Modify vertices to create pit
+            const vertices = terrainGeometry.attributes.position.array;
+            for (let i = 0; i < vertices.length; i += 3) {
+                const x = vertices[i];
+                const y = vertices[i + 1];
+                const distance = Math.sqrt(x * x + y * y);
+                
+                if (distance < 5) {
+                    vertices[i + 2] = -2 * (1 - distance / 5); // Create pit
+                } else {
+                    vertices[i + 2] = Math.random() * 0.3;
+                }
+            }
+
+            terrainGeometry.computeVertexNormals();
+            const terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
+            terrain.rotation.x = -Math.PI / 2;
+            scene.add(terrain);
+
+            // Add grid for reference
+            const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x888888);
+            scene.add(gridHelper);
+
+            // Camera position
+            camera.position.set(10, 10, 10);
+            camera.lookAt(0, 0, 0);
+
+            // Mouse controls
+            let mouseX = 0, mouseY = 0;
+            let isMouseDown = false;
+
+            container.addEventListener('mousedown', () => { isMouseDown = true; });
+            container.addEventListener('mouseup', () => { isMouseDown = false; });
+            container.addEventListener('mousemove', (e) => {
+                if (isMouseDown) {
+                    mouseX = e.clientX;
+                    mouseY = e.clientY;
+                }
+            });
+
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+
+                if (isMouseDown) {
+                    camera.position.x = Math.sin(mouseX * 0.005) * 15;
+                    camera.position.z = Math.cos(mouseX * 0.005) * 15;
+                    camera.position.y = 10 + (mouseY - window.innerHeight / 2) * 0.02;
+                    camera.lookAt(0, 0, 0);
+                }
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+        }
+
+        // Tool functions
+        function uploadAOI() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.shp,.kml,.geojson';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                alert(`AOI file "${file.name}" uploaded successfully!`);
+            };
+            input.click();
+        }
+
+        function measureTool() {
+            alert('Measurement tool activated. Click points on the map to measure distance.');
+        }
+
+        function drawPolygon() {
+            const drawControl = new L.Control.Draw({
+                position: 'topright',
+                draw: {
+                    polygon: true,
+                    polyline: false,
+                    rectangle: false,
+                    circle: false,
+                    circlemarker: false,
+                    marker: false
+                }
+            });
+            map.addControl(drawControl);
+            
+            alert('Polygon drawing tool activated. Draw an area on the map.');
+        }
+
+        // Utility functions
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Initialize Charts
+        function initCharts() {
+            // Elevation Profile Chart
+            const elevCtx = document.getElementById('elevationChart').getContext('2d');
+            new Chart(elevCtx, {
+                type: 'line',
+                data: {
+                    labels: ['0m', '200m', '400m', '600m', '800m', '1000m', '1200m'],
+                    datasets: [{
+                        label: 'Elevation',
+                        data: [450, 445, 420, 380, 360, 385, 440],
+                        borderColor: '#4CAF50',
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }, {
+                        label: 'Original Surface',
+                        data: [450, 450, 448, 447, 445, 446, 445],
+                        borderColor: '#FFA500',
+                        borderDash: [5, 5],
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e0e0e0' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#333' },
+                            ticks: { color: '#999' }
+                        },
+                        y: {
+                            grid: { color: '#333' },
+                            ticks: { color: '#999' },
+                            title: {
+                                display: true,
+                                text: 'Elevation (m)',
+                                color: '#999'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Volume Growth Chart
+            const volCtx = document.getElementById('volumeChart').getContext('2d');
+            new Chart(volCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
+                    datasets: [{
+                        label: 'Volume (M m³)',
+                        data: [0.8, 0.85, 0.92, 0.98, 1.05, 1.10, 1.15, 1.20, 1.23],
+                        backgroundColor: 'rgba(76, 175, 80, 0.6)',
+                        borderColor: '#4CAF50',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e0e0e0' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#333' },
+                            ticks: { color: '#999' }
+                        },
+                        y: {
+                            grid: { color: '#333' },
+                            ticks: { color: '#999' },
+                            title: {
+                                display: true,
+                                text: 'Volume (M m³)',
+                                color: '#999'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Simulate real-time updates
+        function startRealTimeUpdates() {
+            setInterval(() => {
+                // Update random values to simulate real-time monitoring
+                const depthElement = document.querySelector('.info-value:nth-of-type(7)');
+                if (depthElement) {
+                    const newDepth = (38.6 + (Math.random() - 0.5) * 2).toFixed(1);
+                    depthElement.textContent = `${newDepth} m`;
+                }
+            }, 5000);
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 's':
+                        e.preventDefault();
+                        exportData();
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        generateReport();
+                        break;
+                    case 'd':
+                        e.preventDefault();
+                        detectMining();
+                        break;
+                }
+            }
+        });
+
+        // Initialize everything when page loads
+        window.onload = () => {
+            initMap();
+            initCharts();
+            startRealTimeUpdates();
+            
+            // Show welcome message
+            setTimeout(() => {
+                console.log('%c ORENEXUS Mining Monitor System ', 
+                    'background: #4CAF50; color: white; font-size: 16px; padding: 10px;');
+                console.log('System initialized successfully');
+            }, 1000);
+        };
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (map) {
+                map.invalidateSize();
+            }
+        });

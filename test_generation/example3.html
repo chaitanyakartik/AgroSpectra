@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ORENEXUS - Mining Activity Monitor</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Leaflet Draw CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <style>
+    :root{
+      --bg-very-dark:#0a0a0a;
+      --bg-dark:#1a1a1a;
+      --panel:#222;
+      --accent:#4CAF50;
+      --accent-hover:#45a049;
+      --danger:#f44336;
+      --muted:#999;
+      --text:#e0e0e0;
+      --border:#333;
+      --glass: rgba(26,26,26,0.95);
+      --glass-blur: 10px;
+      --transition: 0.22s ease;
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0;transition:all var(--transition);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial;}
+
+    html,body{height:100%;background:var(--bg-very-dark);color:var(--text);}
+
+    /* Layout */
+    .app {
+      display:flex;
+      height:100vh;
+      overflow:hidden;
+    }
+
+    header.header{
+      position:fixed;left:0;right:0;top:0;height:60px;
+      background:linear-gradient(90deg,var(--bg-dark),#2a2a2a);
+      border-bottom:1px solid var(--border);
+      display:flex;align-items:center;padding:0 18px;z-index:1200;
+    }
+    header .logo{font-weight:700;font-size:20px;color:var(--accent);margin-right:auto;}
+    .header-controls{display:flex;align-items:center;gap:10px;}
+
+    /* Inputs in header */
+    .small-input{padding:7px 10px;background:#2a2a2a;border:1px solid #444;color:var(--text);border-radius:6px;font-size:14px;}
+    .view-toggle{display:flex;background:#2a2a2a;padding:4px;border-radius:6px;gap:6px;}
+    .view-toggle button{background:transparent;border:none;color:var(--muted);padding:6px 10px;border-radius:6px;cursor:pointer;}
+    .view-toggle button.active{background:var(--accent);color:#fff;}
+
+    /* Sidebar */
+    aside.sidebar{width:300px;background:var(--bg-dark);border-right:1px solid var(--border);margin-top:60px;overflow:auto;transition:width .25s ease;height:calc(100vh - 60px);padding-bottom:24px;}
+    aside.sidebar.collapsed{width:56px;}
+    .sidebar-section{border-bottom:1px solid var(--border);}
+    .sidebar-header{padding:12px 16px;background:var(--panel);display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+    .sidebar-header:hover{background:#2a2a2a;}
+    .sidebar-content{padding:12px 16px;display:none;}
+    .sidebar-content.active{display:block;}
+    .control-label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px;}
+    .control-input{width:100%;padding:8px;border-radius:6px;border:1px solid #444;background:#2a2a2a;color:var(--text);}
+    .control-slider{width:100%}
+
+    .button-group{display:flex;gap:8px;margin-top:10px;}
+    .btn{flex:1;padding:8px 12px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;}
+    .btn.secondary{background:#555;}
+    .btn.danger{background:var(--danger);}
+    .btn:active{transform:translateY(1px);}
+
+    /* Main */
+    main.main{flex:1;margin-top:60px;position:relative;display:flex;flex-direction:column;height:calc(100vh - 60px);}
+    #map{flex:1;}
+    .loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:none;z-index:900}
+    .spinner{width:44px;height:44px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* Info panel & Charts */
+    .info-panel, .charts-panel{position:absolute;bottom:18px;background:var(--glass);backdrop-filter:blur(var(--glass-blur));border:1px solid var(--border);border-radius:10px;padding:16px;z-index:800}
+    .info-panel{left:18px;min-width:320px;}
+    .charts-panel{right:18px;width:380px;}
+    .info-header{font-size:16px;color:var(--accent);margin-bottom:12px;font-weight:600}
+    .info-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03);align-items:center}
+    .info-label{color:var(--muted);font-size:13px}
+    .info-value{font-weight:600;color:var(--text);font-size:13px}
+    .status-active{color:var(--accent)}
+    .status-illegal{color:var(--danger)}
+
+    /* FABs */
+    .fab-container{position:absolute;right:420px;bottom:18px;display:flex;flex-direction:column;gap:10px;z-index:800}
+    .fab{width:56px;height:56px;border-radius:50%;background:var(--accent);border:none;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,0.4);cursor:pointer}
+    .fab:hover{transform:scale(1.06);box-shadow:0 8px 22px rgba(0,0,0,0.5)}
+
+    /* Modal 3D */
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1500;align-items:center;justify-content:center}
+    .modal.active{display:flex}
+    .modal-content{background:var(--bg-dark);width:88%;height:84%;border-radius:10px;padding:12px;position:relative}
+    .modal-close{position:absolute;right:12px;top:12px;background:var(--danger);border:none;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
+    #threejs-container{width:100%;height:calc(100% - 10px);border-radius:6px;overflow:hidden}
+
+    /* Toast */
+    #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:36px;background:#1f1f1f;padding:12px 18px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);color:var(--text);display:none;z-index:2000}
+
+    /* Responsive */
+    @media (max-width: 900px){
+      aside.sidebar{position:fixed;left:0;top:60px;height:calc(100vh - 60px);z-index:1300;transform:translateX(-100%);transition:transform .25s ease;}
+      aside.sidebar.open{transform:translateX(0)}
+      .fab-container{right:120px}
+      .charts-panel{display:none}
+      .info-panel{left:8px;right:8px;min-width:auto}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="appRoot">
+    <header class="header" role="banner">
+      <div class="logo">ORENEXUS</div>
+
+      <div class="header-controls" role="region" aria-label="Toolbar">
+        <button id="uploadAoiBtn" class="btn" title="Upload AOI"><i class="fa-solid fa-upload" aria-hidden="true"></i>&nbsp;<span class="visually-hidden">Upload AOI</span></button>
+
+        <input id="datePicker" type="date" class="small-input" aria-label="Select date" value="2025-09-25" />
+        <input id="timePicker" type="time" class="small-input" aria-label="Select time" value="11:25" />
+
+        <select id="sensorSelect" class="control-input" aria-label="Sensor selection" style="width:150px">
+          <option>Landsat-8</option>
+          <option>Sentinel-2</option>
+          <option>WorldView-3</option>
+        </select>
+
+        <div class="view-toggle" role="tablist" aria-label="View toggle">
+          <button id="view2D" class="active" role="tab" aria-selected="true">2D</button>
+          <button id="view3D" role="tab">3D</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar" role="complementary" aria-label="Controls">
+      <div class="sidebar-section">
+        <div class="sidebar-header" data-target="layer-controls">
+          <span>Layer Controls</span><span aria-hidden="true">▼</span>
+        </div>
+        <div id="layer-controls" class="sidebar-content active">
+          <div class="control-group">
+            <label class="control-label">Base Layer</label>
+            <select id="baseLayerSelect" class="control-input">
+              <option value="satellite">Satellite</option>
+              <option value="terrain">Terrain</option>
+              <option value="streets">Streets</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label class="control-label"><input id="miningOverlayToggle" type="checkbox" checked /> Mining Areas Overlay</label>
+          </div>
+
+          <div class="control-group">
+            <label class="control-label"><input id="boundaryToggle" type="checkbox" /> Legal Boundary</label>
+          </div>
+
+          <div class="control-group">
+            <label class="control-label">Opacity</label>
+            <input id="opacityRange" class="control-slider" type="range" min="0" max="100" value="70"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-header" data-target="viz-settings"><span>Visualization Settings</span><span aria-hidden="true">▼</span></div>
+        <div id="viz-settings" class="sidebar-content">
+          <div class="control-group">
+            <label class="control-label">Band Combination</label>
+            <select id="bandSelect" class="control-input">
+              <option>Natural Color (4-3-2)</option>
+              <option>False Color (5-4-3)</option>
+              <option>NDVI</option>
+              <option>NDWI</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label class="control-label">Brightness</label>
+            <input class="control-slider" type="range" min="-100" max="100" value="0">
+          </div>
+          <div class="control-group">
+            <label class="control-label">Contrast</label>
+            <input class="control-slider" type="range" min="-100" max="100" value="0">
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-header" data-target="filter-tools"><span>Filter Tools</span><span aria-hidden="true">▼</span></div>
+        <div id="filter-tools" class="sidebar-content">
+          <div class="control-group">
+            <label class="control-label">Date Range</label>
+            <input class="control-input" type="date" aria-label="Start date" />
+            <input class="control-input" type="date" aria-label="End date" style="margin-top:8px" />
+          </div>
+          <div class="control-group">
+            <label class="control-label">Cloud Coverage (%)</label>
+            <input class="control-slider" type="range" min="0" max="100" value="20">
+          </div>
+          <div class="control-group">
+            <label class="control-label"><input type="checkbox" id="illegalOnly" /> Show Illegal Mining Only</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-header" data-target="analysis-tools"><span>Analytical Tools</span><span aria-hidden="true">▼</span></div>
+        <div id="analysis-tools" class="sidebar-content">
+          <div class="button-group">
+            <button id="detectMiningBtn" class="btn"><i class="fa-solid fa-magnifying-glass"></i></button>
+            <button id="calcVolumeBtn" class="btn secondary"><i class="fa-solid fa-square-poll-vertical"></i></button>
+          </div>
+          <div class="button-group" style="margin-top:8px;">
+            <button id="timeSeriesBtn" class="btn secondary"><i class="fa-solid fa-chart-line"></i></button>
+            <button id="detectIllegalBtn" class="btn danger"><i class="fa-solid fa-triangle-exclamation"></i></button>
+          </div>
+          <div class="button-group" style="margin-top:8px;">
+            <button id="generateReportBtn" class="btn"><i class="fa-solid fa-file-lines"></i></button>
+            <button id="exportDataBtn" class="btn secondary"><i class="fa-solid fa-download"></i></button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main area -->
+    <main class="main" role="main">
+      <div id="map" aria-label="Map"></div>
+
+      <div class="loading" id="loading">
+        <div class="spinner" aria-hidden="true"></div>
+        <div style="text-align:center;margin-top:8px;color:var(--muted);font-size:13px">Processing...</div>
+      </div>
+
+      <div class="info-panel" id="infoPanel" role="region" aria-label="Selected mining site details">
+        <div class="info-header">Selected Mining Site</div>
+
+        <div class="info-row"><span class="info-label">Name:</span><span class="info-value" id="infoName" data-field="name">Chainpur Mine</span></div>
+        <div class="info-row"><span class="info-label">ID:</span><span class="info-value" id="infoId" data-field="id">38472</span></div>
+        <div class="info-row"><span class="info-label">Location:</span><span class="info-value" id="infoLocation" data-field="location">25.2120°N, 85.1376°E</span></div>
+        <div class="info-row"><span class="info-label">Status:</span><span class="info-value status-active" id="infoStatus" data-field="status">Active</span></div>
+        <div class="info-row"><span class="info-label">Mining Area:</span><span class="info-value" id="infoArea" data-field="area">5.26 ha</span></div>
+        <div class="info-row"><span class="info-label">Outside Boundary:</span><span class="info-value status-illegal" id="infoOutside" data-field="outside">0.8 ha</span></div>
+        <div class="info-row"><span class="info-label">Avg Depth:</span><span class="info-value" id="infoAvgDepth" data-field="avgDepth">38.6 m</span></div>
+        <div class="info-row"><span class="info-label">Max Depth:</span><span class="info-value" id="infoMaxDepth" data-field="maxDepth">92.4 m</span></div>
+        <div class="info-row"><span class="info-label">Est. Volume:</span><span class="info-value" id="infoVolume" data-field="volume">1.23 M m³</span></div>
+      </div>
+
+      <div class="charts-panel" id="chartsPanel" role="region" aria-label="Charts">
+        <div class="info-header">Elevation Profile</div>
+        <canvas id="elevationChart" style="height:200px;width:100%"></canvas>
+        <div style="margin-top:14px">
+          <div class="info-header">Volume Growth</div>
+          <canvas id="volumeChart" style="height:200px;width:100%"></canvas>
+        </div>
+      </div>
+
+      <div class="fab-container" role="group" aria-label="Quick tools">
+        <button id="measureBtn" class="fab" title="Measure"><i class="fa-solid fa-ruler"></i></button>
+        <button id="drawBtn" class="fab" title="Draw Area"><i class="fa-solid fa-pen"></i></button>
+        <button id="open3DBtn" class="fab" title="3D View"><i class="fa-solid fa-cubes-stacked"></i></button>
+      </div>
+    </main>
+  </div>
+
+  <!-- 3D modal -->
+  <div class="modal" id="modal3D" role="dialog" aria-modal="true" aria-label="3D view modal">
+    <div class="modal-content">
+      <button id="close3DBtn" class="modal-close">✕ Close</button>
+      <div id="threejs-container" aria-label="3D scene container"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Scripts (keep at bottom) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+
+  <script>
+    /*****************************************************************************
+     * Utilities & UI helpers
+     *****************************************************************************/
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+    function showToast(msg, ms = 3000) {
+      const t = $('#toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      t.style.opacity = '1';
+      clearTimeout(t._hideTimer);
+      t._hideTimer = setTimeout(() => {
+        t.style.opacity = '0';
+        setTimeout(() => t.style.display = 'none', 300);
+      }, ms);
+    }
+
+    function toggleLoading(show) {
+      $('#loading').style.display = show ? 'block' : 'none';
+    }
+
+    function safeText(el, text){
+      if(el) el.textContent = text;
+    }
+
+    /*****************************************************************************
+     * Leaflet map and layers (DRY base layer handling)
+     *****************************************************************************/
+    let map;
+    let miningLayer;
+    let boundaryLayer;
+    let drawnItems;
+    let currentBaseLayerKey = 'satellite';
+
+    const baseLayers = {
+      satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' }),
+      terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: 'Map data © OpenStreetMap contributors' }),
+      streets: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' })
+    };
+
+    function initMap(){
+      map = L.map('map', { zoomControl: true }).setView([25.5941,85.1376], 13);
+
+      currentBaseLayerKey = 'satellite';
+      baseLayers[currentBaseLayerKey].addTo(map);
+
+      drawnItems = new L.FeatureGroup();
+      map.addLayer(drawnItems);
+
+      // Add sample mining geometry
+      addSampleMiningArea();
+
+      // Invalidate size on load to avoid cropping
+      setTimeout(() => map.invalidateSize(), 200);
+    }
+
+    function changeBaseLayer(key){
+      if(!baseLayers[key]) return;
+      if(baseLayers[currentBaseLayerKey]) map.removeLayer(baseLayers[currentBaseLayerKey]);
+      currentBaseLayerKey = key;
+      baseLayers[currentBaseLayerKey].addTo(map);
+    }
+
+    function addSampleMiningArea(){
+      const miningCoords = [
+        [25.595,85.135],[25.598,85.138],[25.596,85.142],[25.592,85.140],[25.591,85.136]
+      ];
+      miningLayer = L.polygon(miningCoords, {
+        color: '#FFA500', weight:3, opacity:0.9, fillOpacity:0.35, fillColor:'#FFD700'
+      }).addTo(map).bindPopup('<b>Chainpur Mine</b><br>Status: Active<br>Area: 5.26 ha');
+
+      const illegalCoords = [
+        [25.593,85.143],[25.594,85.144],[25.592,85.145],[25.591,85.144]
+      ];
+      L.polygon(illegalCoords, {
+        color: '#FF0000', weight:3, opacity:0.9, fillOpacity:0.45, fillColor:'#FF6B6B'
+      }).addTo(map).bindPopup('<b>Illegal Mining Detected!</b><br>Area: 0.8 ha');
+    }
+
+    function toggleMiningOverlay(show){
+      if(!miningLayer) return;
+      miningLayer.setStyle({ opacity: show ? 0.9 : 0, fillOpacity: show ? (parseInt($('#opacityRange').value)/100) : 0 });
+    }
+
+    function toggleBoundaryLayer(show){
+      if(show){
+        const boundaryCoords = [[25.590,85.134],[25.599,85.134],[25.599,85.142],[25.590,85.142]];
+        if(boundaryLayer) map.removeLayer(boundaryLayer);
+        boundaryLayer = L.polygon(boundaryCoords, {
+          color: '#00FF00', weight:2, opacity:0.9, fillOpacity:0.08, fillColor:'#00FF00', dashArray:'10,10'
+        }).addTo(map);
+      } else {
+        if(boundaryLayer) map.removeLayer(boundaryLayer);
+      }
+    }
+
+    function updateOpacity(v){
+      if(miningLayer) miningLayer.setStyle({ fillOpacity: v/100 });
+    }
+
+    /*****************************************************************************
+     * Analytical actions (use toast + loading instead of alert)
+     *****************************************************************************/
+    function detectMining(){
+      toggleLoading(true);
+      setTimeout(() => {
+        toggleLoading(false);
+        showToast('Mining areas detected — 3 active sites, 1 potential illegal area. Total ≈ 8.4 ha');
+      }, 1200);
+    }
+
+    function calculateVolume(){
+      toggleLoading(true);
+      setTimeout(() => {
+        toggleLoading(false);
+        showToast("Volume calculation complete — Total: 1.23 M m³ (Simpson's, ±5%)");
+      }, 900);
+    }
+
+    function timeSeriesAnalysis(){
+      showToast('Time series analysis launched for the selected date range.');
+    }
+
+    function detectIllegal(){
+      toggleLoading(true);
+      setTimeout(() => {
+        toggleLoading(false);
+        showToast('Illegal mining detected: 1 area (0.8 ha) at 25.593°N, 85.143°E — first seen Sept 15, 2025');
+      }, 1300);
+    }
+
+    function generateReport(){
+      const content = [
+        'MINING ACTIVITY REPORT',
+        'Generated: ' + new Date().toLocaleString(),
+        'District: East Singhbhum, Jharkhand',
+        '',
+        'SUMMARY',
+        'Total Mining Area: 5.26 hectares',
+        'Legal Mining: 4.46 hectares',
+        'Illegal Mining: 0.8 hectares',
+        'Average Depth: 38.6 meters',
+        'Estimated Volume: 1.23 M m³'
+      ].join('\\n');
+      // In production you'd generate a file; here show toast & console
+      console.log(content);
+      showToast('Report generated (check console or implement download).');
+    }
+
+    function exportData(){
+      showToast('Export: GeoJSON, CSV, PDF (download functionality can be enabled here).');
+    }
+
+    /*****************************************************************************
+     * Drawing & measurement tools
+     *****************************************************************************/
+    function enableDrawing(){
+      const drawControl = new L.Control.Draw({
+        draw: { polygon:true, polyline:false, rectangle:false, circle:false, marker:false, circlemarker:false },
+        edit: { featureGroup: drawnItems }
+      });
+      map.addControl(drawControl);
+      showToast('Draw tool active — draw polygon to add AOI.');
+    }
+
+    function measureTool(){
+      showToast('Measurement tool activated. Click map to measure distances (basic stub).');
+    }
+
+    function uploadAOIFile(){
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.shp,.kml,.geojson';
+      input.onchange = e => {
+        const f = e.target.files && e.target.files[0];
+        if(f) showToast(`AOI file "${f.name}" selected — parsing not implemented in this demo.`);
+      };
+      input.click();
+    }
+
+    /*****************************************************************************
+     * Charts
+     *****************************************************************************/
+    let elevationChart, volumeChart;
+    function initCharts(){
+      const elevCtx = $('#elevationChart').getContext('2d');
+      elevationChart = new Chart(elevCtx, {
+        type: 'line',
+        data: {
+          labels: ['0m','200m','400m','600m','800m','1000m','1200m'],
+          datasets:[
+            { label:'Elevation', data:[450,445,420,380,360,385,440], tension:0.4, fill:true, borderColor:'#4CAF50', backgroundColor:'rgba(76,175,80,0.12)'},
+            { label:'Original Surface', data:[450,450,448,447,445,446,445], tension:0.2, borderColor:'#FFA500', borderDash:[5,5], fill:false}
+          ]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{labels:{color:'#e0e0e0'}}},
+          scales:{x:{grid:{color:'#333'},ticks:{color:'#999'}}, y:{grid:{color:'#333'},ticks:{color:'#999'},title:{display:true,text:'Elevation (m)',color:'#999'}}}
+        }
+      });
+
+      const volCtx = $('#volumeChart').getContext('2d');
+      volumeChart = new Chart(volCtx, {
+        type: 'bar',
+        data: {
+          labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep'],
+          datasets:[{label:'Volume (M m³)',data:[0.8,0.85,0.92,0.98,1.05,1.10,1.15,1.20,1.23], borderColor:'#4CAF50', borderWidth:1, backgroundColor:'rgba(76,175,80,0.6)'}]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{labels:{color:'#e0e0e0'}}},
+          scales:{x:{grid:{color:'#333'},ticks:{color:'#999'}}, y:{grid:{color:'#333'},ticks:{color:'#999'},title:{display:true,text:'Volume (M m³)',color:'#999'}}}
+        }
+      });
+    }
+
+    /*****************************************************************************
+     * 3D: lazy-load Three.js and create a simple terrain
+     *****************************************************************************/
+    let threeLoaded = false;
+    let threeState = { renderer:null, camera:null, scene:null, animateId:null };
+
+    function lazyLoadThree(callback){
+      if(threeLoaded) return callback();
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+      script.onload = () => { threeLoaded = true; callback(); };
+      script.onerror = () => showToast('Failed to load 3D library.');
+      document.head.appendChild(script);
+    }
+
+    function open3DModal(){
+      $('#modal3D').classList.add('active');
+      lazyLoadThree(init3D);
+    }
+
+    function close3DModal(){
+      $('#modal3D').classList.remove('active');
+      // teardown renderer loop if exists
+      if(threeState.animateId) cancelAnimationFrame(threeState.animateId);
+      if(threeState.renderer && threeState.renderer.domElement) threeState.renderer.domElement.remove();
+      threeState = { renderer:null, camera:null, scene:null, animateId:null };
+    }
+
+    function init3D(){
+      if(!threeLoaded || !window.THREE){
+        showToast('3D library not available.');
+        return;
+      }
+      const container = $('#threejs-container');
+      container.innerHTML = '';
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87CEEB);
+
+      const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+      const renderer = new THREE.WebGLRenderer({ antialias:true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      container.appendChild(renderer.domElement);
+
+      const ambient = new THREE.AmbientLight(0xffffff, 0.6); scene.add(ambient);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.4); dirLight.position.set(10,10,5); scene.add(dirLight);
+
+      const g = new THREE.PlaneGeometry(20,20,50,50);
+      const m = new THREE.MeshPhongMaterial({ color:0x8B7355, side:THREE.DoubleSide });
+      // modify vertices
+      const pos = g.attributes.position;
+      for(let i=0;i<pos.count;i++){
+        const x = pos.getX(i), y = pos.getY(i);
+        const dist = Math.sqrt(x*x + y*y);
+        let z = (Math.random()*0.3);
+        if(dist < 5) z = -2 * (1 - dist/5);
+        pos.setZ(i, z);
+      }
+      g.computeVertexNormals();
+      const terrain = new THREE.Mesh(g, m); terrain.rotation.x = -Math.PI/2; scene.add(terrain);
+
+      const grid = new THREE.GridHelper(20,20,0x444444,0x888888); scene.add(grid);
+
+      camera.position.set(10,10,10); camera.lookAt(0,0,0);
+
+      // simple mouse controls
+      let isDown=false, lastX=0, lastY=0;
+      renderer.domElement.addEventListener('pointerdown', (e)=>{ isDown=true; lastX=e.clientX; lastY=e.clientY; });
+      window.addEventListener('pointerup', ()=> isDown=false);
+      window.addEventListener('pointermove', (e)=>{
+        if(!isDown) return;
+        const dx = (e.clientX - lastX)*0.01, dy = (e.clientY - lastY)*0.01;
+        camera.position.x -= dx; camera.position.z += dx;
+        camera.position.y -= dy;
+        camera.lookAt(0,0,0);
+        lastX = e.clientX; lastY = e.clientY;
+      });
+
+      function animate(){
+        threeState.animateId = requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+      }
+      threeState = { renderer, camera, scene, animateId:null };
+      animate();
+
+      // handle resize
+      function onResize(){
+        if(!threeState.renderer) return;
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+      }
+      window.addEventListener('resize', onResize);
+    }
+
+    /*****************************************************************************
+     * Small misc: real-time simulation & keyboard shortcuts
+     *****************************************************************************/
+    function startRealTimeUpdates(){
+      setInterval(()=>{
+        // update avg depth value
+        const avgEl = $('#infoAvgDepth');
+        if(avgEl){
+          const newDepth = (38.6 + (Math.random()-0.5)*2).toFixed(1) + ' m';
+          avgEl.textContent = newDepth;
+        }
+      }, 5000);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if(e.ctrlKey || e.metaKey){
+        switch(e.key.toLowerCase()){
+          case 's': e.preventDefault(); exportData(); break;
+          case 'r': e.preventDefault(); generateReport(); break;
+          case 'd': e.preventDefault(); detectMining(); break;
+        }
+      }
+    });
+
+    /*****************************************************************************
+     * Wire up UI events (no inline handlers)
+     *****************************************************************************/
+    function wireUi(){
+      // Header buttons
+      $('#uploadAoiBtn').addEventListener('click', uploadAOIFile);
+      $('#view2D').addEventListener('click', (ev)=>{
+        $$('#view2D, #view3D').forEach(b=>b.classList.remove('active'));
+        ev.currentTarget.classList.add('active');
+        close3DModal();
+      });
+      $('#view3D').addEventListener('click', (ev)=>{
+        $$('#view2D, #view3D').forEach(b=>b.classList.remove('active'));
+        ev.currentTarget.classList.add('active');
+        open3DModal();
+      });
+
+      // Sidebar toggles
+      $$('.sidebar-header').forEach(header => {
+        header.addEventListener('click', () => {
+          const target = header.dataset.target;
+          const el = document.getElementById(target);
+          if(el) el.classList.toggle('active');
+          const arrow = header.querySelector('span:last-child');
+          if(arrow) arrow.textContent = el && el.classList.contains('active') ? '▼' : '▶';
+        });
+      });
+
+      // Base layer select
+      $('#baseLayerSelect').addEventListener('change', (e) => changeBaseLayer(e.target.value));
+
+      // Overlay toggles
+      $('#miningOverlayToggle').addEventListener('change', (e) => toggleMiningOverlay(e.target.checked));
+      $('#boundaryToggle').addEventListener('change', (e) => toggleBoundaryLayer(e.target.checked));
+      $('#opacityRange').addEventListener('input', (e) => updateOpacity(e.target.value));
+
+      // Analysis buttons
+      $('#detectMiningBtn').addEventListener('click', detectMining);
+      $('#calcVolumeBtn').addEventListener('click', calculateVolume);
+      $('#timeSeriesBtn').addEventListener('click', timeSeriesAnalysis);
+      $('#detectIllegalBtn').addEventListener('click', detectIllegal);
+      $('#generateReportBtn').addEventListener('click', generateReport);
+      $('#exportDataBtn').addEventListener('click', exportData);
+
+      // FABs
+      $('#measureBtn').addEventListener('click', measureTool);
+      $('#drawBtn').addEventListener('click', enableDrawing);
+      $('#open3DBtn').addEventListener('click', open3DModal);
+
+      // Modal close
+      $('#close3DBtn').addEventListener('click', close3DModal);
+
+      // Map resize handling
+      window.addEventListener('resize', () => { if(map) map.invalidateSize(); });
+    }
+
+    /*****************************************************************************
+     * Boot
+     *****************************************************************************/
+    window.addEventListener('load', () => {
+      initMap();
+      initCharts();
+      wireUi();
+      startRealTimeUpdates();
+
+      // small welcome in console for developers
+      setTimeout(()=>console.log('%c ORENEXUS Mining Monitor System initialized', 'background: #4CAF50; color: #fff; padding:6px;'), 600);
+    });
+  </script>
+</body>
+</html>
