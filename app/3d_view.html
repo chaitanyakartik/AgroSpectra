@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORENEXUS - 3D Terrain View</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/themes.css">
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            <div class="logo">⛏️ ORENEXUS</div>
+            <div class="header-controls">
+                <button class="btn" id="uploadAOIBtn">📤 Upload AOI</button>
+                <input type="date" class="date-picker" id="datePicker" value="2025-10-07">
+                <input type="time" class="time-picker" value="14:30">
+                <select class="satellite-select" id="satelliteSelect">
+                    <option>Landsat-8</option>
+                    <option>Sentinel-2</option>
+                    <option>WorldView-3</option>
+                    <option>Planet</option>
+                </select>
+                <div class="view-toggle">
+                    <a href="index.html" class="btn">2D Map</a>
+                    <a href="#" class="btn active">3D Terrain</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-layout">
+            <div class="sidebar" id="sidebar">
+                <div class="sidebar-section">
+                    <div class="sidebar-header active" data-section="sites">
+                        <span>📍 Mining Sites</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="sidebar-content active" id="sitesContent">
+                        <div class="sites-list" id="sitesList"></div>
+                    </div>
+                </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-header" data-section="layers">
+                        <span>🗺️ Layer Controls</span>
+                        <span>▶</span>
+                    </div>
+                    <div class="sidebar-content" id="layersContent"></div>
+                </div>
+                 <div class="sidebar-section">
+                    <div class="sidebar-header" data-section="visualization">
+                        <span>🎨 Visualization</span>
+                        <span>▶</span>
+                    </div>
+                    <div class="sidebar-content" id="visualizationContent"></div>
+                </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-header" data-section="analysis">
+                        <span>🔬 Analysis Tools</span>
+                        <span>▶</span>
+                    </div>
+                    <div class="sidebar-content" id="analysisContent"></div>
+                </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-header" data-section="reports">
+                        <span>📄 Reports</span>
+                        <span>▶</span>
+                    </div>
+                    <div class="sidebar-content" id="reportsContent"></div>
+                </div>
+            </div>
+
+            <div class="main-content">
+                <iframe src="3d_dem_visualization.html" style="width: 100%; height: 100%; border: none;"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/modules/ui_controls.js"></script>
+    <script>
+        // Minimal script to initialize only the UI controls on this page
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => window.UIControls.initEventListeners());
+        } else {
+            window.UIControls.initEventListeners();
+        }
+    </script>
+</body>
+</html>

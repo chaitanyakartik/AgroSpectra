@@ -162,3 +162,25 @@
         flex-wrap: wrap;
     }
 }
+
+/* Add this to css/layout.css */
+
+.main-layout {
+    display: flex;
+    /* This makes the layout grow to fill the available space below the header */
+    flex-grow: 1; 
+    overflow: hidden; /* Prevents scrollbars on the layout container */
+}
+
+.main-content {
+    /* This makes the content area expand to fill the remaining space in the flex layout */
+    flex-grow: 1;
+    display: flex; /* This is crucial for the iframe inside it */
+}
+
+/* You can remove the inline style from the iframe tag after adding this */
+.main-content iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
