@@ -1,0 +1,7 @@
+mine_id,flag_type,severity,description,action_required,flagged_date,status
+MN-KA-2023-002,Environmental Risk,High,Within 0.3 km of forest boundary,Environmental impact assessment required,2025-09-18,Under Review
+MN-KA-2023-002,Water Contamination Risk,Medium,Only 0.8 km from water body,Water quality monitoring,2025-09-15,Monitoring
+MN-KA-2023-003,Survey Overdue,Low,285 days since last verified survey,Schedule ground verification,2025-09-10,Scheduled
+MN-TN-2023-004,Violation,High,Expansion beyond lease boundary: 8.5 ha,Immediate field inspection,2025-09-20,Open
+MN-TN-2023-005,Environmental Risk,High,Within 0.2 km of forest boundary,Environmental impact assessment required,2025-09-18,Under Review
+MN-TN-2023-005,Water Contamination Risk,Medium,Only 0.5 km from water body,Water quality monitoring,2025-09-15,Monitoring
